@@ -1,10 +1,11 @@
 (ns org.bytopia.foreclojure.api
   "Functions that interact with 4clojure API or fetch data directly."
-  (:require [clojure.data.json :as json]
-            [clojure.java.io :as jio])
-  (:import android.util.Xml
+  (:require [clojure.data.json :as json])
+  (:import android.app.Activity
+           android.util.Xml
            java.io.FileNotFoundException
            java.io.StringReader
+           java.net.InetAddress
            org.apache.http.client.RedirectHandler
            org.apache.http.client.entity.UrlEncodedFormEntity
            [org.apache.http.client.methods HttpGet HttpPost]
@@ -19,6 +20,11 @@
 ;; Android differs. This also frees us of few extra dependencies. The client is
 ;; absolutely incomplete as we implement only things we need to communicate with
 ;; 4clojure.
+
+(defn network-connected? []
+  (try
+    (not= (InetAddress/getByName "4clojure.com") "")
+    (catch Exception _ false)))
 
 (def ^:private get-http-client
   "Memoized function that returns an instance of HTTP client when called."
@@ -45,6 +51,7 @@
                                   "UTF-8")))
          response (.execute client request)]
      {:status (.getStatusLine response)
+      :body (slurp (.getContent (.getEntity response)))
       :redirect (when-let [loc (.getLastHeader response "Location")]
                   (.getValue loc))})))
 
@@ -62,8 +69,14 @@
 ;; Again, we use a native XmlPullParser to make things faster and save
 ;; dependencies.
 
-(defn problem-url->id [url]
+(defn- problem-url->id [url]
   (Integer/parseInt (second (re-matches #".*/problem/(\d+)" url))))
+
+(defn- problem-id->url [id]
+  (str "http://www.4clojure.com/problem/" id))
+
+(defn- problem-id->api-url [id]
+  (str "http://www.4clojure.com/api/problem/" id))
 
 (defmacro ^:private tag?
   "Helper macro for parsing. Locals `parser` and `event-type` are presumed to be
@@ -75,45 +88,73 @@
         ~@(for [[k v] (partition 2 attrs)]
             `(= (.getAttributeValue ~'parser nil ~k) ~v))))
 
-(defn- parse-problems-page
-  "Because parsing HTML page is the only way to get which problems the user have
-  solved (and also how many problems are there)."
+(defn- ^XmlPullParser html-parser
   [page-str]
   (let [^XmlPullParserFactory factory (doto (XmlPullParserFactory/newInstance)
                                         (.setValidating false)
-                                        (.setFeature Xml/FEATURE_RELAXED true))
-        ^XmlPullParser parser (doto (.newPullParser factory)
-                                (.setInput (StringReader. page-str)))]
-    (loop [solved #{},inside-problem-table false
+                                        (.setFeature Xml/FEATURE_RELAXED true))]
+    (doto (.newPullParser factory)
+      (.setInput (StringReader. page-str)))))
+
+(defn- parse-problems-page
+  "Because parsing HTML page is the only way to get which problems the user have
+  solved (and also how many problems are there). `last-known-id` is the latest
+  problem we know about and already fetched."
+  [page-str last-known-id]
+  (let [parser (html-parser page-str)]
+    (loop [solved (), new (), inside-problem-table false
            inside-titlelink false, problem-id nil]
       (let [event-type (.next parser)]
         (cond
          (or (= event-type XmlPullParser/END_DOCUMENT)
              (and inside-problem-table
                   (tag? end "table")))
-         {:solved-ids solved
-          :last-id problem-id}
+         {:solved-ids (set solved)
+          :new-ids (sort new)}
 
          (tag? start "table", "id" "problem-table")
-         (recur solved true false nil)
+         (recur solved new true false nil)
 
          (and inside-problem-table
               (tag? start "td", "class" "titlelink"))
-         (recur solved true true nil)
+         (recur solved new true true nil)
 
          (and inside-titlelink
               (tag? start "a"))
-         (recur solved true false
-                (problem-url->id (.getAttributeValue parser nil "href")))
+         (let [id (problem-url->id (.getAttributeValue parser nil "href"))]
+           (recur solved (if (> id last-known-id)
+                           (conj new id) new)
+                  true false id))
 
          (and inside-problem-table
               (tag? start "img"))
          (recur (if (= (.getAttributeValue parser nil "alt") "completed")
                   (conj solved problem-id) solved)
-                true false problem-id)
+                new true false problem-id)
 
-         :else (recur solved inside-problem-table
+         :else (recur solved new inside-problem-table
                       inside-titlelink problem-id))))))
+
+(defn- parse-problem-edit-page
+  "Parse HTML page to get the existing solution of the problem by current user."
+  [page-str]
+  (let [parser (html-parser page-str)]
+    (loop [in-text-area false]
+      (let [event-type (.next parser)]
+        (cond
+         (= event-type XmlPullParser/END_DOCUMENT) nil
+
+         (tag? start "textarea", "id" "code-box") (recur true)
+
+         (and in-text-area
+              (= event-type XmlPullParser/TEXT))
+         (.getText parser)
+
+         (and in-text-area
+              (tag? end "textarea"))
+         (recur false)
+
+         :else (recur in-text-area))))))
 
 ;;; API interaction
 
@@ -138,32 +179,52 @@
         (.clear (.getCookieStore (get-http-client))))
       success?)))
 
-;; (login "abc" "abc")
+;; (login "testclient" "testclient")
 
 (defn fetch-problem
   "Given a problem ID requests it from 4clojure.com using REST API. Returns
   parsed JSON map, or nil if problem is not found."
   [id]
   (try
-    (-> (str "http://www.4clojure.com/api/problem/" id)
+    (-> (problem-id->api-url id)
         slurp
         json/read-str)
     (catch FileNotFoundException e nil)))
 
-;; (fetch-problem 1)
+;; (fetch-problem 23)
+
+(defn fetch-user-solution
+  "Given a problem ID fetches its solution submitted by the current user. If
+  user haven't solved the problem returns empty string."
+  [id]
+  (let [resp (http-get (get-http-client)
+                       {:url (problem-id->url id)})]
+    (parse-problem-edit-page (:body resp))))
+
+;; (fetch-user-solution 11)
 
 (defn fetch-solved-problem-ids
-  "Returns a map, where `:solved-ids` is a set of problem IDs solved by the
-  current user; and `:last-id` is a biggest problem ID in the database."
-  []
+  "Given ID of the last problem we know, returns a map, where `:solved-ids` is a
+  set of problem IDs solved by the current user; and `:new-ids` is a list of new
+  problem IDs yet unfetched by us."
+  [last-known-id]
   (let [resp (http-get (get-http-client)
                        {:url "http://www.4clojure.com/problems"})]
-    (parse-problems-page (:body resp))))
+    (parse-problems-page (:body resp) last-known-id)))
 
-;; (fetch-solved-problem-ids)
+;; (fetch-solved-problem-ids 150)
 
-;; (defn- fix-tests
-;;   "Takes a problem map and turns `:tests` strings into Clojure code."
-;;   [problem]
-;;   (update-in problem [:tests]
-;;              #(pr-str (map read-string %))))
+(defn submit-solution
+  "Posts a solution to a problem with given ID. Presumes user to be logged in.
+
+  Returns true if the solution is correct, although the opposite should never
+  happen since we check solutions locally prior to sending them."
+  [problem-id code]
+  (-> (http-post (get-http-client)
+                 {:url (str "http://www.4clojure.com/rest/problem/" problem-id)
+                  :form-params {"id" (str problem-id), "code" (str code)}})
+      :body json/read-str
+      (get "error") empty?))
+
+;; (submit-solution 11 '(/ 1 0))
+;; (submit-solution 11 '[:b 2])
