@@ -127,7 +127,7 @@
                      :users/username username})
       first))
 
-;; (get-solution (*a :main) 11 "@debug")
+;; (get-solution (*a :main) 12 "testclient")
 
 (defn insert-solution [context username solution-map]
   (let [db (get-db context)
@@ -155,17 +155,20 @@
 
 ;; (update-solution (*a :main) "@debug" 1 {:code "true", :is_solved true})
 
-(defn all-problems-by-user
-  "Queries database for the list of problems to be displayed in the grid."
-  [context username hide-solved?]
+(defn get-problems-cursor
+  "Queries database for the problems to be displayed in the grid. Returns a
+  Cursor object."
+  [context username show-solved?]
   (let [db (get-db context)
         user-id (db/query-scalar db :_id :users {:username username})]
-    (db/query-seq
+    (db/query
      db
      [:problems/_id :problems/title :problems/description :solutions/is_solved]
      (str "problems LEFT OUTER JOIN solutions ON solutions.problem_id = problems._id "
           "AND solutions.user_id = " user-id)
-     (when hide-solved? {:solutions/user_id nil}))))
+     (when-not show-solved? {:solutions/user_id nil}))))
+
+;; (get-problems-cursor (*a :main) "testclient" true)
 
 (defn get-solved-ids-for-user
   "Returns a set of solved IDs by the given user."
@@ -177,3 +180,5 @@
          set)))
 
 ;; (get-solved-ids-for-user (*a :main) "@debug")
+
+(db/query-seq (get-db (*a :main)) :solutions {:user_id 3})

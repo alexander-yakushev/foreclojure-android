@@ -179,7 +179,7 @@
         (.clear (.getCookieStore (get-http-client))))
       success?)))
 
-;; (login "testclient" "testclient")
+;; (login "foo" "bar")
 
 (defn fetch-problem
   "Given a problem ID requests it from 4clojure.com using REST API. Returns
