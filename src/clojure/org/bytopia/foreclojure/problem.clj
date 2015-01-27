@@ -131,9 +131,9 @@ Please submit a bug report.")))))
                 :on-click (fn [v] (clear-result-flags
                                   (.getContext ^View v)))}]])
 
-(defn make-tests-list [tests]
+(defn make-tests-list [tests under]
   (list* :linear-layout {:id ::tests-lv
-                         :layout-below ::desc-tv
+                         :layout-below under
                          :id-holder true
                          :orientation :vertical
                          :layout-margin-top [10 :dp]
@@ -182,7 +182,15 @@ Please submit a bug report.")))))
     [:text-view {:id ::desc-tv
                  :layout-below ::title-tv
                  :text (render-html description)}]
-    (make-tests-list tests)
+    (when (seq restricted)
+      [:text-view {:id ::restricted-tv
+                   :layout-below ::desc-tv
+                   :text (->> restricted
+                              (interpose ", ")
+                              (apply str)
+                              (str "Special restrictions: "))}])
+    (make-tests-list tests (if (seq restricted)
+                             ::restricted-tv  ::desc-tv))
     [:edit-text {:id ::codebox
                  :layout-below ::tests-lv
                  :ime-options android.view.inputmethod.EditorInfo/IME_FLAG_NO_EXTRACT_UI
