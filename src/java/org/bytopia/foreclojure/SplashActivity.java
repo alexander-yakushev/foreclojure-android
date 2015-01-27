@@ -58,7 +58,7 @@ public class SplashActivity extends Activity {
                 new ColorDrawable(Color.RED), new ColorDrawable(Color.GREEN)
             });
         eye.setImageDrawable(ctd);
-        ctd.startTransition(500, 0);
+        ctd.startTransition(750, 0);
     }
 
     public void proceed() {

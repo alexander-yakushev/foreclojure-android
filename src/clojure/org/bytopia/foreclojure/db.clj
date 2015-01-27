@@ -10,8 +10,8 @@
 (def ^:private db-schema
   (let [nntext "text not null"]
     (db/make-schema
-     :name "problems.db"
-     :version 17
+     :name "4clojure.db"
+     :version 1
      :tables {:problems {:columns
                          {:_id          "integer primary key"
                           :title        nntext

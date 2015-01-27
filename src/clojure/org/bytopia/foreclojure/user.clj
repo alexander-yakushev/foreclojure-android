@@ -23,9 +23,11 @@
            android.widget.EditText
            javax.crypto.Cipher
            javax.crypto.SecretKey
-           javax.crypto.spec.SecretKeySpec))
+           javax.crypto.spec.SecretKeySpec
+           org.bytopia.foreclojure.BuildConfig))
 
-(def secret-key (SecretKeySpec. (.getBytes KEY) "Blowfish"))
+(def secret-key (SecretKeySpec. (.getBytes BuildConfig/ENC_KEY)
+                                BuildConfig/ENC_ALGORITHM))
 
 (defn- encrypt-pwd [password]
   (let [cipher (doto (Cipher/getInstance ALGORITHM)
