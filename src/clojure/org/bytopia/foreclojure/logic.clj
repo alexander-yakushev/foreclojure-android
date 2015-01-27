@@ -1,5 +1,26 @@
 (ns org.bytopia.foreclojure.logic
-  (:require clojure.walk))
+  (:require clojure.walk)
+  (:import [java.util.concurrent FutureTask TimeUnit TimeoutException]))
+
+(def ^:const timeout 3000)
+
+(defn thunk-timeout
+  "Takes a function and waits for it to finish executing for the predefined
+  number of milliseconds."
+  [thunk]
+  (let [task (FutureTask. thunk)
+        thread (Thread. task)]
+    (try
+      (.start thread)
+      (.get task timeout TimeUnit/MILLISECONDS)
+      (catch TimeoutException e
+        (.cancel task true)
+        (.interrupt thread)
+        (throw (TimeoutException. "Execution timed out.")))
+      (catch Exception e
+        (.cancel task true)
+        (.interrupt thread)
+        (throw e)))))
 
 (defn check-suggested-solution
   "Evaluates user code against problem tests. Returns a map of test numbers to
@@ -21,9 +42,10 @@
                                      (restricted f)))
                                  code-form)]
            (if (nil? found-restricted)
-             (if-not (eval code-form)
-               (assoc err-map i "Unit test failed.")
-               err-map)
+             (let [result (thunk-timeout (fn [] (eval code-form)))]
+               (if result
+                 err-map
+                 (assoc err-map i "Execution timed out.")))
              (assoc err-map i
                     (str "Not fair! Function is not allowed: "
                          found-restricted))))
@@ -31,4 +53,7 @@
    {} (vec tests)))
 
 ;; (check-suggested-solution "[1 (/ 1 0) 4]" (:problem-tests @state) #{})
-
+;; (check-suggested-solution
+;;  "(loop [] (neko.log/d \"From Inside!\")
+;; (Thread/sleep 500)
+;; (recur))" ["(= __ true)"] #{})
