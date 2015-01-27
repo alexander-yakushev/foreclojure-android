@@ -17,6 +17,11 @@
         <category android:name="android.intent.category.LAUNCHER"/>
       </intent-filter>
     </activity>
+    <activity android:name=".LoginActivity">
+      <intent-filter>
+        <action android:name='org.bytopia.foreclojure.LOGIN'/>
+      </intent-filter>
+    </activity>
     <activity android:name=".ProblemGridActivity">
       <intent-filter>
         <action android:name='org.bytopia.foreclojure.MAIN'/>

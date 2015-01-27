@@ -8,5 +8,5 @@
   `(future
      (on-ui (.setProgressBarIndeterminateVisibility ~'a true))
      (try ~@body
-          (catch Exception ex# (toast ~'a (str ex#)))
+          (catch Exception ex# (on-ui (toast ~'a (str ex#))))
           (finally (on-ui (.setProgressBarIndeterminateVisibility ~'a false))))))

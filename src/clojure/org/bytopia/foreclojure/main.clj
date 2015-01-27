@@ -1,6 +1,7 @@
 (ns org.bytopia.foreclojure.main
   (:require clojure.set
             [neko.activity :refer [defactivity set-content-view!]]
+            [neko.data :refer [like-map]]
             [neko.debug :refer [*a safe-for-ui]]
             [neko.find-view :refer [find-view find-views]]
             [neko.notify :refer [toast]]
@@ -13,9 +14,11 @@
             [org.bytopia.foreclojure
              [db :as db]
              [api :as api]
-             [utils :refer [long-running-job]]])
+             [utils :refer [long-running-job]]
+             [user :as user]])
   (:import android.content.Intent
            android.text.Html
+           android.app.Activity
            android.view.View
            [android.widget CursorAdapter GridView TextView]))
 
@@ -24,41 +27,58 @@
   :traits [:on-item-click])
 
 (defn refresh-ui [a]
-  (doto (.getAdapter (find-view a ::problems-gv))
-    (.changeCursor (db/get-problems-cursor a "testclient" true))
-    (.notifyDataSetChanged)))
+  (let [user (:user (like-map (.getIntent a)))]
+    (doto (.getAdapter (find-view a ::problems-gv))
+      (.changeCursor (db/get-problems-cursor a user true))
+      (.notifyDataSetChanged))
+    (.invalidateOptionsMenu a)))
 
 ;; (on-ui (refresh-ui (*a)))
 
 (defn reload-from-server [a]
   (long-running-job
    (when (api/network-connected?)
-     (let [user "testclient"
-           last-id (db/initialize a)
-           {:keys [solved-ids new-ids]} (api/fetch-solved-problem-ids last-id)
-           locally-solved (db/get-solved-ids-for-user a user)
-           diff (clojure.set/difference solved-ids locally-solved)]
-       ;; Mark new problems as solved although we don't have the code yet.
-       (doseq [problem-id diff]
-         (db/update-solution a user problem-id {:is_solved true, :code nil}))
-       ;; Download new problems and insert them into database
-       (doseq [problem-id new-ids]
-         (when-let [json (assoc (api/fetch-problem problem-id)
-                           "id" problem-id)]
-           (db/insert-problem a json)))
-       (when (pos? (count new-ids))
-         (on-ui (toast (format "Downloaded %d new problems."
-                               (count new-ids))))))
-     (on-ui (refresh a)))))
+     (let [user (:user (like-map (.getIntent a)))]
+       (when (not (api/logged-in?))
+         (user/login-via-saved a user true))
+       (let [last-id (db/initialize a)
+             {:keys [solved-ids new-ids]} (api/fetch-solved-problem-ids last-id)
+             locally-solved (db/get-solved-ids-for-user a user)]
+         ;; Mark new problems as solved although we don't have the code yet.
+         (doseq [problem-id (clojure.set/difference solved-ids locally-solved)]
+           (neko.log/d "Marking problem " problem-id " as solved.")
+           (db/update-solution a user problem-id {:is_solved true, :code nil}))
+         ;; Upload solutions to locally solved problems which aren't synced.
+         (doseq [problem-id (clojure.set/difference locally-solved solved-ids)
+                 :let [solution (db/get-solution a user problem-id)]]
+           (neko.log/d "Sumbitting solution " problem-id solution)
+           (if (api/submit-solution problem-id (:solutions/code solution))
+             (db/update-solution a user problem-id {:is_synced true
+                                                    :is_solved true})
+             (on-ui (toast a (str "(???) Server rejected our solution to problem " problem-id)))))
+         ;; Download new problems and insert them into database
+         (doseq [problem-id new-ids]
+           (when-let [json (assoc (api/fetch-problem problem-id)
+                             "id" problem-id)]
+             (db/insert-problem a json)))
+         (when (pos? (count new-ids))
+           (on-ui (toast (format "Downloaded %d new problems."
+                                 (count new-ids)))))))
+     (on-ui (refresh-ui a)))))
 
 ;; (reload-from-server (*a))
 
 (defn launch-problem-activity
-  [a problem-id]
+  [a user problem-id]
   (let [intent (Intent. a (resolve 'org.bytopia.foreclojure.ProblemActivity))]
     (.putExtra intent "problem-id" problem-id)
-    (.putExtra intent "user" "testclient")
+    (.putExtra intent "user" user)
     (.startActivity a intent)))
+
+(defn switch-user [a]
+  (.startActivity
+   a (Intent. a (resolve 'org.bytopia.foreclojure.LoginActivity)))
+  (.finish a))
 
 (defn make-problem-adapter [a]
   (proxy [CursorAdapter] [a nil]
@@ -120,7 +140,11 @@
     (.addFlags (.getWindow this) android.view.WindowManager$LayoutParams/FLAG_KEEP_SCREEN_ON)
     (safe-for-ui
      (on-ui
-       (let [this (*a)]
+       (let [this (*a)
+             user (-> (neko.data/get-shared-preferences this "4clojure" :private)
+                      neko.data/like-map
+                      :last-user)]
+         (.putExtra (.getIntent this) "user" user)
          (set-content-view! (*a)
            [:grid-view {:id ::problems-gv
                         :column-width (traits/to-dimension (*a) [160 :dp])
@@ -131,7 +155,7 @@
                                          (let [id (-> (.getAdapter parent)
                                                       (.getItem position)
                                                       :problems/_id)]
-                                           (launch-problem-activity this id)))}])
+                                           (launch-problem-activity this user id)))}])
          (refresh-ui this)
          (reload-from-server this))))
     )
@@ -141,15 +165,19 @@
   :on-create-options-menu
   (fn [this menu]
     (safe-for-ui
-     (let [online? (api/logged-in?)]
+     (let [user (:user (like-map (.getIntent this)))
+           online? (api/logged-in?)]
        (menu/make-menu
         menu [[:item {:title "Reload"
-                      :icon #res/drawable :android/ic-menu-rotate
+                      :icon #res/drawable :org.bytopia.foreclojure/ic-menu-refresh
                       :show-as-action :always
                       :on-click (fn [_] (safe-for-ui (reload-from-server this)))}]
-              [:item {:title (format "testclient (%s)"
+              [:item {:title (format "%s (%s)" user
                                      (if online? "online" "offline"))
                       :icon (if online?
-                              #res/drawable :android/ic-menu-share
-                              #res/drawable :android/ic-menu-help)
-                      :show-as-action [:always :with-text]}]])))))
+                              #res/drawable :org.bytopia.foreclojure/ic-menu-friendslist
+                              #res/drawable :org.bytopia.foreclojure/ic-menu-login)
+                      :show-as-action [:always :with-text]
+                      :on-click (fn [_] (safe-for-ui (switch-user this)))}]])))))
+
+;; (on-ui (refresh-ui (*a)))

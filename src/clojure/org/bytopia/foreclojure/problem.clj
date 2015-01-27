@@ -205,11 +205,11 @@ Please submit a bug report.")))))
        (on-ui
          (let [{:keys [problem-id user]} (like-map (.getIntent this))
                problem (db/get-problem this problem-id)
-               solution (db/get-solution this problem-id user)
+               solution (db/get-solution this user problem-id)
                code (or (:solutions/code solution) "")
                solved? (and solution (:solutions/is_solved solution))]
            (swap! (.state this) assoc :problem problem, :solution solution)
-           (set-content-view! this (problem-ui this problem code solved?))
+           (set-content-view! this (problem-ui this problem))
            (refresh-ui this code solved?)
            (action-bar/setup-action-bar
             this {:title (str "Problem " (:_id problem))

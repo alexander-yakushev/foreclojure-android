@@ -11,7 +11,7 @@
   (let [nntext "text not null"]
     (db/make-schema
      :name "problems.db"
-     :version 14
+     :version 16
      :tables {:problems {:columns
                          {:_id          "integer primary key"
                           :title        nntext
@@ -21,7 +21,8 @@
                           :tests        nntext}}
               :users {:columns
                       {:_id      "integer primary key"
-                       :username nntext}}
+                       :username nntext
+                       :password "blob"}}
               :solutions {:columns
                           {:_id "integer primary key"
                            :user_id "integer"
@@ -116,8 +117,21 @@
 
 ;; (get-problem (*a :main) 1)
 
+(defn update-user [context-or-db username password-bytes]
+  (let [db (get-db context-or-db)
+        user-id (db/query-scalar db :_id :users {:username username})]
+    (if user-id
+      (db/update db :users {:password password-bytes} {:_id user-id})
+      (db/insert db :users {:username username
+                            :password password-bytes}))))
+
+(defn get-user [context-or-db username]
+  (first (db/query-seq (get-db context-or-db) :users {:username username})))
+
+;; (get-user (*a :main) "@debug")
+
 (defn get-solution
-  [context-or-db problem-id username]
+  [context-or-db username problem-id]
   (-> (get-db context-or-db)
       (db/query-seq [:solutions/_id :solutions/code
                      :solutions/is_solved :solutions/is_synced]
@@ -127,7 +141,7 @@
                      :users/username username})
       first))
 
-;; (get-solution (*a :main) 12 "testclient")
+;; (get-solution (*a :main) "testclient" 12)
 
 (defn insert-solution [context username solution-map]
   (let [db (get-db context)
@@ -144,7 +158,7 @@
   (log/d "Update solution:" username problem-id new-solution)
   (let [db (get-db context)
         user-id (db/query-scalar db :_id :users {:username username})
-        old-solution (get-solution db problem-id username)]
+        old-solution (get-solution db username problem-id)]
     (if old-solution
       (when (or (:is_solved new-solution)
                 (not (:solutions/is_solved old-solution)))
@@ -181,4 +195,4 @@
 
 ;; (get-solved-ids-for-user (*a :main) "@debug")
 
-(db/query-seq (get-db (*a :main)) :solutions {:user_id 3})
+;; (db/query-seq (get-db (*a :main)) :solutions {:user_id 3})

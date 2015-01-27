@@ -170,14 +170,16 @@
   [username password force-relogin?]
   (if (and (logged-in?) (not force-relogin?))
     true
-    (let [resp (http-post (get-http-client)
-                          {:url "http://www.4clojure.com/login"
-                           :form-params {"user" username, "pwd" password}})
-          success? (= (:redirect resp) "/problems")]
-      (when-not success?
-        ;; Don't keep the faulty cookie.
-        (.clear (.getCookieStore (get-http-client))))
-      success?)))
+    (try
+      (let [resp (http-post (get-http-client)
+                              {:url "http://www.4clojure.com/login"
+                               :form-params {"user" username, "pwd" password}})
+              success? (= (:redirect resp) "/problems")]
+          (when-not success?
+            ;; Don't keep the faulty cookie.
+            (.clear (.getCookieStore (get-http-client))))
+          success?)
+      (catch Exception ex false))))
 
 ;; (login "foo" "bar")
 
