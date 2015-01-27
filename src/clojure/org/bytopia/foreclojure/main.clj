@@ -20,7 +20,10 @@
            android.text.Html
            android.app.Activity
            android.view.View
-           [android.widget CursorAdapter GridView TextView]))
+           [android.widget CursorAdapter GridView TextView]
+           android.app.AlertDialog android.app.AlertDialog$Builder
+           android.app.Dialog
+           android.content.DialogInterface$OnClickListener))
 
 (defelement :grid-view
   :classname GridView
@@ -84,6 +87,7 @@
     (.startActivity a intent)))
 
 (defn switch-user [a]
+  (user/clear-last-user a)
   (.startActivity
    a (Intent. a (resolve 'org.bytopia.foreclojure.LoginActivity)))
   (.finish a))
@@ -197,6 +201,22 @@
                                      (if online? "online" "offline"))
                       :icon #res/drawable :org.bytopia.foreclojure/ic-menu-friendslist
                       :show-as-action [:always :with-text]
-                      :on-click (fn [_] (safe-for-ui (switch-user this)))}]])))))
+                      :on-click (fn [_] (safe-for-ui (.showDialog this 0)))}]])))))
 
 ;; (on-ui (refresh-ui (*a)))
+
+(defn ProblemGridActivity-onCreateDialog [this id _]
+  (safe-for-ui
+   (when (= id 0)
+     (-> (AlertDialog$Builder. this)
+         (.setMessage "Do you want to log out of the current account?\nPressing OK will return you to login form.")
+         (.setCancelable true)
+         (.setPositiveButton "OK" (reify DialogInterface$OnClickListener
+                                    (onClick [_ dialog id]
+                                      (switch-user this))))
+         (.setNegativeButton "Cancel" (reify DialogInterface$OnClickListener
+                                        (onClick [_ dialog id]
+                                          (.cancel dialog))))
+         .create))))
+
+;; (on-ui (.showDialog (*a) 0))

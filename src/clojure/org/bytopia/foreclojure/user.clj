@@ -43,6 +43,12 @@
 (defn lookup-user [a username]
   (update-in (db/get-user a username) [:password] decrypt-pwd))
 
+(defn clear-last-user [a]
+  (-> (neko.data/get-shared-preferences a "4clojure" :private)
+      .edit
+      (.remove "last-user")
+      .commit))
+
 (defn login-via-input [wdg]
   (let [a (.getContext ^android.view.View wdg)
         [user-et pwd-et] (find-views a ::user-et ::pwd-et)
@@ -51,7 +57,7 @@
     (neko.log/d "username" username "password" password)
     (future
       (if-let [success? (api/login username password true)]
-        (do (-> (neko.data/get-shared-preferences (*a) "4clojure" :private)
+        (do (-> (neko.data/get-shared-preferences a "4clojure" :private)
                 .edit
                 (neko.data/assoc! :last-user username)
                 .commit)

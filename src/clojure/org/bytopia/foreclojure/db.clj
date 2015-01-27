@@ -11,7 +11,7 @@
   (let [nntext "text not null"]
     (db/make-schema
      :name "problems.db"
-     :version 16
+     :version 17
      :tables {:problems {:columns
                          {:_id          "integer primary key"
                           :title        nntext
