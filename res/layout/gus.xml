@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:gravity="center" >
+
+  <ImageView
+      android:id="@+id/splash_gus_eye"
+      android:layout_width="29dp"
+      android:layout_height="15dp"
+      android:layout_marginTop="60dp"
+      android:layout_marginLeft="220dp">
+  </ImageView>
+
+  <ImageView
+      android:id="@+id/splash_gus"
+      android:layout_width="320dp"
+      android:layout_height="320dp"
+      android:src="@drawable/foreclj_logo">
+  </ImageView>
+</RelativeLayout>

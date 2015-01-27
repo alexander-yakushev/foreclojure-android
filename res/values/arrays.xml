@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string-array name="loading_messages_array">
+    <item>Putting that cookie down</item>
+    <item>Facing Lord Clojaraxxus</item>
+    <item>Dusting off stale lambdas</item>
+    <item>Making simple easy</item>
+    <item>Understanding transducers</item>
+    <item>Writing monad tutorial</item>
+    <item>Saving money for Datomic</item>
+    <item>Thanking 4clojure.com devs</item>
+    <item>Soldering Atreus keyboard</item>
+    <item>Testing user patience</item>
+  </string-array>
+</resources>
