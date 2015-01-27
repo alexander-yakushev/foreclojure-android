@@ -26,10 +26,16 @@
   :classname GridView
   :traits [:on-item-click])
 
+(defn hide-solved-problem? [a]
+  (-> (neko.data/get-shared-preferences a "4clojure" :private)
+      like-map
+      :hide-solved?))
+
 (defn refresh-ui [a]
   (let [user (:user (like-map (.getIntent a)))]
     (doto (.getAdapter (find-view a ::problems-gv))
-      (.changeCursor (db/get-problems-cursor a user true))
+      (.changeCursor (db/get-problems-cursor
+                      a user (not (hide-solved-problem? a))))
       (.notifyDataSetChanged))
     (.invalidateOptionsMenu a)))
 
@@ -43,13 +49,15 @@
          (user/login-via-saved a user true))
        (let [last-id (db/initialize a)
              {:keys [solved-ids new-ids]} (api/fetch-solved-problem-ids last-id)
-             locally-solved (db/get-solved-ids-for-user a user)]
+             locally-solved (db/get-solved-ids-for-user a user)
+             to-download (clojure.set/difference solved-ids locally-solved)
+             to-upload (clojure.set/difference locally-solved solved-ids)]
          ;; Mark new problems as solved although we don't have the code yet.
-         (doseq [problem-id (clojure.set/difference solved-ids locally-solved)]
+         (doseq [problem-id to-download]
            (neko.log/d "Marking problem " problem-id " as solved.")
            (db/update-solution a user problem-id {:is_solved true, :code nil}))
          ;; Upload solutions to locally solved problems which aren't synced.
-         (doseq [problem-id (clojure.set/difference locally-solved solved-ids)
+         (doseq [problem-id to-upload
                  :let [solution (db/get-solution a user problem-id)]]
            (neko.log/d "Sumbitting solution " problem-id solution)
            (if (api/submit-solution problem-id (:solutions/code solution))
@@ -61,9 +69,9 @@
            (when-let [json (assoc (api/fetch-problem problem-id)
                              "id" problem-id)]
              (db/insert-problem a json)))
-         (when (pos? (count new-ids))
-           (on-ui (toast (format "Downloaded %d new problems."
-                                 (count new-ids)))))))
+         (when (pos? (+ (count new-ids) (count to-download) (count to-upload)))
+           (on-ui (toast a (format "Downloaded %d new problem(s).\nDiscovered %d server solution(s).\nUploaded %d local solution(s)."
+                                   (count new-ids) (count to-download) (count to-upload)))))))
      (on-ui (refresh-ui a)))))
 
 ;; (reload-from-server (*a))
@@ -79,6 +87,13 @@
   (.startActivity
    a (Intent. a (resolve 'org.bytopia.foreclojure.LoginActivity)))
   (.finish a))
+
+(defn toggle-hide-solved [a]
+  (let [sp (neko.data/get-shared-preferences a "4clojure" :private)
+        previous (-> sp like-map :hide-solved?)]
+    (neko.log/d "Toggled" previous)
+    (-> sp .edit (neko.data/assoc! :hide-solved? (not previous)) .commit)
+    (refresh-ui a)))
 
 (defn make-problem-adapter [a]
   (proxy [CursorAdapter] [a nil]
@@ -136,6 +151,7 @@
   :key :main
   :on-create
   (fn [this bundle]
+    (neko.log/d "onCreate()" this)
     (neko.activity/request-window-features! this :indeterminate-progress)
     (.addFlags (.getWindow this) android.view.WindowManager$LayoutParams/FLAG_KEEP_SCREEN_ON)
     (safe-for-ui
@@ -145,9 +161,9 @@
                       neko.data/like-map
                       :last-user)]
          (.putExtra (.getIntent this) "user" user)
-         (set-content-view! (*a)
+         (set-content-view! this
            [:grid-view {:id ::problems-gv
-                        :column-width (traits/to-dimension (*a) [160 :dp])
+                        :column-width (traits/to-dimension this [160 :dp])
                         :num-columns :auto-fit
                         :stretch-mode :stretch-spacing-uniform
                         :adapter (make-problem-adapter this)
@@ -168,15 +184,18 @@
      (let [user (:user (like-map (.getIntent this)))
            online? (api/logged-in?)]
        (menu/make-menu
-        menu [[:item {:title "Reload"
+        menu [[:item {:title "Show solved"
+                      :show-as-action :never
+                      :checkable true
+                      :checked (not (hide-solved-problem? this))
+                      :on-click (fn [_] (safe-for-ui (toggle-hide-solved this)))}]
+              [:item {:title "Reload"
                       :icon #res/drawable :org.bytopia.foreclojure/ic-menu-refresh
                       :show-as-action :always
                       :on-click (fn [_] (safe-for-ui (reload-from-server this)))}]
               [:item {:title (format "%s (%s)" user
                                      (if online? "online" "offline"))
-                      :icon (if online?
-                              #res/drawable :org.bytopia.foreclojure/ic-menu-friendslist
-                              #res/drawable :org.bytopia.foreclojure/ic-menu-login)
+                      :icon #res/drawable :org.bytopia.foreclojure/ic-menu-friendslist
                       :show-as-action [:always :with-text]
                       :on-click (fn [_] (safe-for-ui (switch-user this)))}]])))))
 
