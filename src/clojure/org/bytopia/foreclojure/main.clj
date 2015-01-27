@@ -209,7 +209,8 @@
   (safe-for-ui
    (when (= id 0)
      (-> (AlertDialog$Builder. this)
-         (.setMessage "Do you want to log out of the current account?\nPressing OK will return you to login form.")
+         (.setMessage (str "Do you want to log out of the current account? "
+                           "Pressing OK will return you to login form."))
          (.setCancelable true)
          (.setPositiveButton "OK" (reify DialogInterface$OnClickListener
                                     (onClick [_ dialog id]

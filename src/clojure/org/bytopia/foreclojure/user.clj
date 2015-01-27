@@ -15,12 +15,10 @@
              [db :as db]
              [api :as api]
              [utils :refer [long-running-job]]])
-  (:import android.accounts.AbstractAccountAuthenticator
-           android.accounts.AccountAuthenticatorActivity
-           android.accounts.AccountManager
-           android.content.Intent
+  (:import android.content.Intent
            android.content.res.Configuration
            android.widget.EditText
+           android.app.ProgressDialog
            javax.crypto.Cipher
            javax.crypto.SecretKey
            javax.crypto.spec.SecretKeySpec
@@ -55,19 +53,22 @@
   (let [a (.getContext ^android.view.View wdg)
         [user-et pwd-et] (find-views a ::user-et ::pwd-et)
         username (str (.getText ^EditText user-et))
-        password (str (.getText ^EditText pwd-et))]
+        password (str (.getText ^EditText pwd-et))
+        progress (ProgressDialog/show a nil "Signing in..." true)]
     (neko.log/d "username" username "password" password)
     (future
-      (if-let [success? (api/login username password true)]
-        (do (-> (neko.data/get-shared-preferences a "4clojure" :private)
-                .edit
-                (neko.data/assoc! :last-user username)
-                .commit)
-            (set-user a username password)
-            (.startActivity
-             a (Intent. a (resolve 'org.bytopia.foreclojure.ProblemGridActivity)))
-            (.finish a))
-        (on-ui a (toast "Could not connect. Please check the correctness of your credentials."))))))
+      (try
+        (if-let [success? (api/login username password true)]
+          (do (-> (neko.data/get-shared-preferences a "4clojure" :private)
+                  .edit
+                  (neko.data/assoc! :last-user username)
+                  .commit)
+              (set-user a username password)
+              (.startActivity
+               a (Intent. a (resolve 'org.bytopia.foreclojure.ProblemGridActivity)))
+              (.finish a))
+          (on-ui a (toast "Could not sign in. Please check the correctness of your credentials.")))
+        (finally (on-ui (.dismiss progress)))))))
 
 (defn login-via-saved [a username force?]
   (let [pwd (:password (lookup-user a username))]
@@ -108,7 +109,7 @@
               :layout-below ::pwd-et
               :layout-center-horizontal true
               :layout-margin-top [10 :dp]
-              :text "Login"
+              :text "Sign in"
               :on-click #'login-via-input}]]
    [:text-view {:text "*4clojure for Android is not affiliated with 4clojure.com"
                 :text-size [10 :sp]
