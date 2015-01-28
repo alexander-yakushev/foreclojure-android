@@ -1,6 +1,7 @@
 (ns org.bytopia.foreclojure.api
   "Functions that interact with 4clojure API or fetch data directly."
-  (:require [clojure.data.json :as json])
+  (:require [clojure.data.json :as json]
+            [neko.log :as log])
   (:import android.app.Activity
            android.util.Xml
            java.io.FileNotFoundException
@@ -179,9 +180,52 @@
             ;; Don't keep the faulty cookie.
             (.clear (.getCookieStore (get-http-client))))
           success?)
-      (catch Exception ex false))))
+      (catch Exception ex
+        (log/e "Login failed" ex)
+        false))))
 
 ;; (login "foo" "bar")
+
+(defn check-signup-creds-locally
+  "Checks registration credentials before sending them to 4clojure. Returns a
+  string if something is wrong, or nil if everything is fine. Mostly taken from
+  4clojure.com code."
+  [username email pwd pwdx2]
+  (let [username (.toLowerCase username)]
+    (cond  (< (count username) 4) "Username is too short."
+           (> (count username) 13) "Username is too long."
+
+           (not= username (first (re-seq #"[A-Za-z0-9_]+" username)))
+           "Username should contain only alphanumerics and underscore."
+
+           (< (count pwd) 6) "Password is too short."
+           (not= pwd pwdx2) "Passwords mismatch."
+
+           (not (re-find #"^.+@\S+\.\S{2,4}$" email))
+           "Doesn't look like email, does it?")))
+
+;; (check-signup-creds-locally "johndoe" "john@does.com" "secret" "secret")
+
+(defn register
+  "Registers a new account on 4clojure. Returns nil if the registration is was
+  successful, or a error message string."
+  [username email pwd pwdx2]
+  (try
+    (if-let [local-error (check-signup-creds-locally username email pwd pwdx2)]
+      local-error
+      (let [resp (http-post (get-http-client)
+                            {:url "http://www.4clojure.com/register"
+                             :form-params {"user" username, "email" email
+                                           "pwd" pwd, "repeat-pwd" pwdx2}})
+            success? (= (:redirect resp) "/")]
+        (when-not success?
+          ;; Don't keep the faulty cookie.
+          (.clear (.getCookieStore (get-http-client)))
+          ;; Return error-message
+          "Registration failed, maybe such username or email already exists?")))
+    (catch Exception ex
+      (log/e "Registration failed: " username email pwd pwdx2 :exception ex)
+      false)))
 
 (defn fetch-problem
   "Given a problem ID requests it from 4clojure.com using REST API. Returns
