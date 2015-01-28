@@ -18,6 +18,10 @@
   - Proper code editor (with highlighting and indentation)
   - Integration with Clojail
 
+* How to build
+
+  Execute =lein droid doall= inside the repository.
+
 * Acknowledgments
 
   I thank 4clojure.com team for developing and maintaining this great resource,

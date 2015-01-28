@@ -149,6 +149,7 @@ Please submit a bug report.")))))
                       (.replace "<li>" "<li>&nbsp; • &nbsp;")
                       ;; Fix internal links
                       (.replace "<a href=\"/" "<a href=\"http://4clojure.com/")
+                      (.replace "<a href='/" "<a href='http://4clojure.com/")
                       Html/fromHtml)]
     ;; Remove extra newlines introduced by <p> tag.
     (loop [i (dec (.length spannable))]
@@ -211,8 +212,9 @@ Please submit a bug report.")))))
   :on-create
   (fn [this bundle]
     (neko.activity/request-window-features! this :indeterminate-progress)
-    (.addFlags (.getWindow this) android.view.WindowManager$LayoutParams/FLAG_KEEP_SCREEN_ON)
-    (let [this (*a)]
+    ;; (.addFlags (.getWindow this) android.view.WindowManager$LayoutParams/FLAG_KEEP_SCREEN_ON)
+    (let [;; this (*a)
+          ]
       (safe-for-ui
        (on-ui
          (let [{:keys [problem-id user]} (like-map (.getIntent this))
