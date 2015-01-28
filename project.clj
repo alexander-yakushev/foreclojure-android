@@ -30,7 +30,7 @@
                :target-path "target/debug"
                :android {:aot :all-with-unused
                          :rename-manifest-package "org.bytopia.foreclojure.debug"
-                         :manifest-options {:app-name "4clojure - debug"}}}]
+                         :manifest-options {:app-name "4Clojure - debug"}}}]
 
              :release
              [:android-common :android-release

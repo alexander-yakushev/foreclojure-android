@@ -1,8 +1,8 @@
-* 4clojure for Android
+* 4Clojure for Android
 
-  This is the source code for unofficial 4cljojure Android application. The app
+  This is the source code for unofficial 4Clojure Android application. The app
   is a client for [[http://4clojure.com][4clojure.com]], which is a website for solving Clojure koans
-  (short programming problems). 4clojure for Android allows solving these koans
+  (short programming problems). 4Clojure for Android allows solving these koans
   on your mobile phone, without entering the browser, in both online and offline
   mode.
 
