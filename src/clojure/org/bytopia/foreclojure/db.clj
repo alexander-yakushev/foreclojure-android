@@ -83,13 +83,14 @@
   (db/transact db
     (with-open [stream (jio/reader (.open (.getAssets context) "data.json"))]
       (doseq [problem (json/read stream)]
-        (insert-problem db problem)))
-    (db/insert db :users {:username "@debug"})
-    (db/insert db :users {:username "@debug2"})
-    (db/insert db :solutions {:user_id 1, :problem_id 1,
-                              :code "true", :is_solved true})
-    (db/insert db :solutions {:user_id 2, :problem_id 2,
-                              :code "4", :is_solved true})))
+        (insert-problem db problem)))))
+
+;; (db/insert db :users {:username "@debug"})
+;; (db/insert db :users {:username "@debug2"})
+;; (db/insert db :solutions {:user_id 1, :problem_id 1,
+;;                           :code "true", :is_solved true})
+;; (db/insert db :solutions {:user_id 2, :problem_id 2,
+;;                           :code "4", :is_solved true})
 
 (defn get-last-problem-id
   "Returns the largest problem ID in the database."

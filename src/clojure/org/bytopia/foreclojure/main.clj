@@ -100,8 +100,9 @@
     (-> sp .edit (neko.data/assoc! :hide-solved? (not previous)) .commit)
     (refresh-ui a)))
 
-(defn make-problem-adapter [a]
-  (MyCursorAdapter. a nil
+(defn make-problem-adapter [a user]
+  (MyCursorAdapter. a (db/get-problems-cursor
+                       a user (not (hide-solved-problem? a)))
                     (fn [context cursor parent]
                       (safe-for-ui
                        (ui/make-ui-element
@@ -172,7 +173,7 @@
                         :column-width (traits/to-dimension this [160 :dp])
                         :num-columns :auto-fit
                         :stretch-mode :stretch-spacing-uniform
-                        :adapter (make-problem-adapter this)
+                        :adapter (make-problem-adapter this user)
                         :on-item-click (fn [parent _ position __]
                                          (let [id (-> (.getAdapter parent)
                                                       (.getItem position)
