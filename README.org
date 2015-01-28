@@ -22,16 +22,19 @@
 
   Execute =lein droid doall= inside the repository.
 
+  For more information on Clojure-Android initiative check [[http://clojure-android.info/][clojure-android.info]].
+
 * Acknowledgments
 
   I thank 4clojure.com team for developing and maintaining this great resource,
-  and for allowing me to base this application upon their work.
+  and for allowing me to base the application upon their work.
 
 * License
 
   Copyright © 2015 Alexander Yakushev. Distributed under the Eclipse Public
   License, the same as Clojure. See the file [[https://github.com/alexander-yakushev/foreclojure-android/blob/master/LICENSE][LICENSE]].
 
-  4clojure.com data and logo is available under the EPL v 1.0 license.
+  4clojure.com data (both embedded into app and downloaded later) and logo are
+  available under the EPL v 1.0 license.
 
   Green check icon is taken from [[http://iconbug.com/detail/icon/859/green-check/][iconbug.com]] and is provided under CC BY-ND 3.0.
