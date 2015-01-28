@@ -6,7 +6,7 @@
 
 (defn thunk-timeout
   "Takes a function and waits for it to finish executing for the predefined
-  number of milliseconds."
+  number of milliseconds. Stolen from Clojail and mutilated."
   [thunk]
   (let [task (FutureTask. thunk)
         thread (Thread. task)]
@@ -22,10 +22,15 @@
         (.interrupt thread)
         (throw e)))))
 
+;; Poor man's clojailing here, of course it isn't enough.
+;;
+(def ^:private forbidden-symbols
+  #{'eval 'resolve 'read 'read-string 'throw 'ns 'in-ns 'require 'use 'refer})
+
 (defn check-suggested-solution
   "Evaluates user code against problem tests. Returns a map of test numbers to
-  the errors (map is empty if all all tests passed correctly). `restricted` is a
-  set of symbols that are forbidden to use."
+  the errors (map is empty if all tests passed correctly). `restricted` is a set
+  of symbols that are forbidden to use."
   [^String code, tests restricted]
   (reduce-kv
    (fn [err-map i ^String test]
@@ -34,12 +39,12 @@
        (try
          (let [code-form (binding [*read-eval* false]
                            (read-string (.replace test "__" code)))
-               restricted (conj restricted 'eval)
                found-restricted (clojure.walk/postwalk
                                  (fn [f]
                                    (if (sequential? f)
                                      (some identity f)
-                                     (restricted f)))
+                                     (or (forbidden-symbols f)
+                                         (restricted f))))
                                  code-form)]
            (if (nil? found-restricted)
              (let [result (thunk-timeout (fn [] (eval code-form)))]
@@ -47,7 +52,7 @@
                  err-map
                  (assoc err-map i "Unit test failed.")))
              (assoc err-map i
-                    (str "Not fair! Function is not allowed: "
+                    (str "Form is not allowed: "
                          found-restricted))))
          (catch Throwable e (assoc err-map i (str e))))))
    {} (vec tests)))

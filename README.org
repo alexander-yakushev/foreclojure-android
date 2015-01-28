@@ -16,6 +16,7 @@
 
   Plans for future:
   - Proper code editor (with highlighting and indentation)
+  - Code golf
   - Integration with Clojail
 
 * How to build
