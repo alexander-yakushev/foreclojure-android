@@ -74,12 +74,12 @@
 ;; (problem-json->db {"id" 13 "title" "Foo" "tests" ["(= __ true)" "(= __ false)"]})
 
 (defn insert-problem [context-or-db json-map]
-  (log/d "A map to insert: " (problem-json->db json-map))
+  (log/d "insert-problem()" "problem-id" (get (problem-json->db json-map) "_id"))
   (db/insert (get-db context-or-db) :problems (problem-json->db json-map)))
 
 (defn populate-database
   "Inserts problems into database from the JSON file that is stored in assets."
-  [context db]
+  [^Context context, db]
   (db/transact db
     (with-open [stream (jio/reader (.open (.getAssets context) "data.json"))]
       (doseq [problem (json/read stream)]

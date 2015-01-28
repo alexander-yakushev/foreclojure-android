@@ -27,23 +27,23 @@
     (not= (InetAddress/getByName "4clojure.com") "")
     (catch Exception _ false)))
 
-(def ^:private get-http-client
+(def ^:private ^DefaultHttpClient get-http-client
   "Memoized function that returns an instance of HTTP client when called."
   (memoize (fn []
              (let [client (DefaultHttpClient.)]
                ;; Don't follow redirects
                (.setRedirectHandler
-                client (proxy [RedirectHandler] []
-                         (getLocationURI [response context] nil)
-                         (isRedirectRequested [response context] false)))
+                client (reify RedirectHandler
+                         (getLocationURI [this response context] nil)
+                         (isRedirectRequested [this response context] false)))
                client))))
 
 (defn http-post
   "Sends a synchronous POST request."
   ([data]
    (http-post (DefaultHttpClient.) data))
-  ([client {:keys [url form-params]}]
-   (let [request (HttpPost. url)
+  ([^DefaultHttpClient client, {:keys [url form-params]}]
+   (let [request (HttpPost. ^String url)
          ;; TODO: Support headers
          _ (when form-params
              (.setEntity request (UrlEncodedFormEntity.
@@ -61,7 +61,7 @@
   ([data]
    (http-get (DefaultHttpClient.) data))
   ([client {:keys [url]}]
-   (let [request (HttpGet. url)
+   (let [request (HttpGet. ^String url)
          response (.execute client request)]
      {:status (.getStatusLine response)
       :body (slurp (.getContent (.getEntity response)))})))
