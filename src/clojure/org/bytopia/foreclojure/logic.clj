@@ -45,7 +45,7 @@
              (let [result (thunk-timeout (fn [] (eval code-form)))]
                (if result
                  err-map
-                 (assoc err-map i "Execution timed out.")))
+                 (assoc err-map i "Unit test failed.")))
              (assoc err-map i
                     (str "Not fair! Function is not allowed: "
                          found-restricted))))
@@ -53,6 +53,7 @@
    {} (vec tests)))
 
 ;; (check-suggested-solution "[1 (/ 1 0) 4]" (:problem-tests @state) #{})
+;; (check-suggested-solution "6" ["(= (- 10 (* 2 3)) __)"] #{})
 ;; (check-suggested-solution
 ;;  "(loop [] (neko.log/d \"From Inside!\")
 ;; (Thread/sleep 500)
