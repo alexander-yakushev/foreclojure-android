@@ -186,7 +186,8 @@ Please submit a bug report.")))))
     [:text-view {:id ::desc-tv
                  :layout-below ::title-tv
                  :text (render-html description)
-                 :movement-method (SafeLinkMethod/getInstance)}]
+                 :movement-method (SafeLinkMethod/getInstance)
+                 :link-text-color (android.graphics.Color/rgb 0 0 139)}]
     (when (seq restricted)
       [:text-view {:id ::restricted-tv
                    :layout-below ::desc-tv

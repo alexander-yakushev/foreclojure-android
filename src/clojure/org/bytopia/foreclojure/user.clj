@@ -20,14 +20,13 @@
            android.content.res.Configuration
            android.text.Html
            android.text.InputType
-           android.text.method.LinkMovementMethod
            android.view.Gravity
            android.view.View
            android.widget.EditText
            javax.crypto.Cipher
            javax.crypto.SecretKey
            javax.crypto.spec.SecretKeySpec
-           org.bytopia.foreclojure.BuildConfig))
+           [org.bytopia.foreclojure BuildConfig SafeLinkMethod]))
 
 (def secret-key (SecretKeySpec. (.getBytes BuildConfig/ENC_KEY)
                                 BuildConfig/ENC_ALGORITHM))
@@ -112,22 +111,23 @@
     (ui/config ll :visibility (if signup-active?
                                 View/VISIBLE View/GONE))))
 
-(defn login-form [landscape?]
-  (let [basis {:layout-width 0, :layout-weight 1}]
-    [:relative-layout (cond-> {:layout-align-parent-bottom true
-                               :layout-margin-bottom [60 :dp]}
-                              landscape? (assoc :layout-to-right-of ::gus-logo
-                                                :layout-margin-bottom [80 :dp]))
-     [:linear-layout {:id ::user-and-pwd
-                      :layout-width :fill
+(defn login-form [where]
+  (let [basis {:layout-width 0, :layout-weight 1}
+        basis-edit (assoc basis :ime-options android.view.inputmethod.EditorInfo/IME_FLAG_NO_EXTRACT_UI)]
+    [:linear-layout {where ::gus-logo
+                     :orientation :vertical
+                     :layout-width :fill
+                     :layout-height :fill
+                     :gravity :center}
+     [:linear-layout {:layout-width :fill
                       :layout-margin [10 :dp]}
-      [:edit-text (assoc basis
+      [:edit-text (assoc basis-edit
                     :id ::user-et
                     :gravity Gravity/CENTER_HORIZONTAL
                     :input-type (bit-or InputType/TYPE_CLASS_TEXT
                                         InputType/TYPE_TEXT_VARIATION_VISIBLE_PASSWORD)
                     :hint "username")]
-      [:edit-text (assoc basis
+      [:edit-text (assoc basis-edit
                     :id ::pwd-et
                     :layout-margin-left [10 :dp]
                     :gravity Gravity/CENTER_HORIZONTAL
@@ -135,32 +135,28 @@
                                         InputType/TYPE_TEXT_VARIATION_PASSWORD)
                     :hint "password")]]
      [:linear-layout {:id ::email-and-pwdx2
-                      :layout-below ::user-and-pwd
-                      ;; :visibility View/GONE
+                      ;; :layout-below ::user-and-pwd
                       :layout-width :fill
                       :layout-margin [10 :dp]}
-      [:edit-text (assoc basis
+      [:edit-text (assoc basis-edit
                     :id ::email-et
                     :gravity Gravity/CENTER_HORIZONTAL
                     :input-type (bit-or InputType/TYPE_CLASS_TEXT
                                         InputType/TYPE_TEXT_VARIATION_EMAIL_ADDRESS)
                     :hint "email")]
-      [:edit-text (assoc basis
+      [:edit-text (assoc basis-edit
                     :id ::pwdx2-et
                     :layout-margin-left [10 :dp]
                     :gravity android.view.Gravity/CENTER_HORIZONTAL
                     :input-type (bit-or InputType/TYPE_CLASS_TEXT
                                         InputType/TYPE_TEXT_VARIATION_PASSWORD)
                     :hint "password x2")]]
-     [:linear-layout {:id ::buttons
-                      :layout-below ::email-and-pwdx2
-                      :layout-width :fill
+     [:linear-layout {:layout-width :fill
                       :layout-margin-top [10 :dp]
                       :layout-margin-left [20 :dp]
                       :layout-margin-right [20 :dp]}
       [:button (assoc basis
                  :id ::signin-but
-                 ;; :text "Wait, I got it"
                  :on-click (fn [w]
                              (let [a (.getContext w)
                                    state (.state a)]
@@ -171,7 +167,6 @@
       [:button (assoc basis
                  :id ::signup-but
                  :layout-margin-left [30 :dp]
-                 ;; :text "No account?"
                  :on-click (fn [w]
                              (let [a (.getContext w)
                                    state (.state a)]
@@ -181,26 +176,30 @@
                                  (register a)))))]]]))
 
 (defn activity-ui [landscape?]
-  [:relative-layout {:layout-width :fill
-                     :layout-height :fill}
-   [:linear-layout (cond-> {:id ::gus-logo
-                            :orientation :vertical
-                            :gravity :center
-                            :layout-margin [10 :dp]}
-                           landscape? (assoc :layout-center-vertical true)
-                           (not landscape?) (assoc :layout-center-horizontal true))
-    [:text-view {:id ::welcome-tv
-                 :text "Welcome to 4clojure*!"
-                 :text-size [22 :sp]}]
-    [:image-view {:image #res/drawable :org.bytopia.foreclojure/foreclj-logo
-                  :layout-height (traits/to-dimension (*a) (if landscape? [220 :dp] [320 :dp]))}]]
-   (login-form landscape?)
-   [:text-view {:text (Html/fromHtml "*This app is an unofficial client for <a href=\"http://4clojure.com\">4clojure.com</a>")
-                :movement-method (LinkMovementMethod/getInstance)
-                :text-size [14 :sp]
-                :padding-right [5 :dp]
-                :layout-align-parent-right true
-                :layout-align-parent-bottom true}]])
+  [:scroll-view {:layout-width :fill
+                 :layout-height :fill
+                 :fill-viewport true}
+   [:relative-layout {:layout-width :fill
+                      :layout-height :fill}
+    [:linear-layout (cond-> {:id ::gus-logo
+                             :orientation :vertical
+                             :gravity :center
+                             :layout-margin [10 :dp]}
+                            landscape? (assoc :layout-center-vertical true)
+                            (not landscape?) (assoc :layout-center-horizontal true))
+     [:text-view {:id ::welcome-tv
+                  :text "Welcome to 4Clojure*!"
+                  :text-size [22 :sp]}]
+     [:image-view {:image #res/drawable :org.bytopia.foreclojure/foreclj-logo
+                   :layout-height (traits/to-dimension (*a) (if landscape? [250 :dp] [320 :dp]))}]
+     [:text-view {:text (Html/fromHtml "*This is an unofficial client for <a href=\"http://4clojure.com\">4clojure.com</a>")
+                  :movement-method (SafeLinkMethod/getInstance)
+                  :text-size [14 :sp]
+                  :padding-right [5 :dp]
+                  :link-text-color (android.graphics.Color/rgb 0 0 139)}]]
+    (login-form (if landscape?
+                  :layout-to-right-of
+                  :layout-below))]])
 
 (defactivity org.bytopia.foreclojure.LoginActivity
   :extends android.accounts.AccountAuthenticatorActivity
@@ -209,8 +208,9 @@
   :on-create
   (fn [this bundle]
     (neko.activity/request-window-features! this :indeterminate-progress :no-title)
+    (.. this (getWindow) (setSoftInputMode android.view.WindowManager$LayoutParams/SOFT_INPUT_STATE_HIDDEN))
     ;; (.addFlags (.getWindow this) android.view.WindowManager$LayoutParams/FLAG_KEEP_SCREEN_ON)
-    (let [;;this (*a)
+    (let [this (*a)
           landscape? (= (.. this (getResources) (getConfiguration) orientation)
                         Configuration/ORIENTATION_LANDSCAPE)]
       (on-ui

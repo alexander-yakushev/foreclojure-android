@@ -20,7 +20,8 @@
         <category android:name="android.intent.category.LAUNCHER"/>
       </intent-filter>
     </activity>
-    <activity android:name=".LoginActivity">
+    <activity android:name=".LoginActivity"
+              android:windowSoftInputMode="adjustResize|stateHidden">
       <intent-filter>
         <action android:name='org.bytopia.foreclojure.LOGIN'/>
       </intent-filter>
