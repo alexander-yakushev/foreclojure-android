@@ -6,7 +6,7 @@
                        "Using empty encryption key."))
          "00000000000000000000000000000000")))
 
-(defproject foreclojure-android/foreclojure-android "0.1.0-SNAPSHOT"
+(defproject foreclojure-android/foreclojure-android "0.1.0"
   :description "Android client for 4clojure.com"
   :url "https://github.com/alexander-yakushev/foreclojure-android"
   :license {:name "Eclipse Public License"
