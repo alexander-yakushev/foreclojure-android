@@ -20,7 +20,8 @@
            android.text.Html
            android.text.SpannableStringBuilder
            android.view.View
-           [android.widget EditText ListView]))
+           [android.widget EditText ListView]
+           org.bytopia.foreclojure.SafeLinkMethod))
 
 ;;; Interaction
 
@@ -146,6 +147,8 @@ Please submit a bug report.")))))
   (let [spannable (-> html
                       (.replace "</li>" "</li><br>")
                       (.replace "<li>" "<li>&nbsp; • &nbsp;")
+                      ;; Fix internal links
+                      (.replace "<a href=\"/" "<a href=\"http://4clojure.com/")
                       Html/fromHtml)]
     ;; Remove extra newlines introduced by <p> tag.
     (loop [i (dec (.length spannable))]
@@ -181,7 +184,8 @@ Please submit a bug report.")))))
                   :layout-margin-top [5 :dp]}]
     [:text-view {:id ::desc-tv
                  :layout-below ::title-tv
-                 :text (render-html description)}]
+                 :text (render-html description)
+                 :movement-method (SafeLinkMethod/getInstance)}]
     (when (seq restricted)
       [:text-view {:id ::restricted-tv
                    :layout-below ::desc-tv
