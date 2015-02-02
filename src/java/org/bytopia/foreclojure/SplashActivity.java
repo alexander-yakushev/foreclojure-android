@@ -51,7 +51,10 @@ public class SplashActivity extends Activity {
         TextView loading = (TextView)findViewById(R.id.splash_loading_message);
         String[] messages = getResources().getStringArray(R.array.loading_messages_array);
         int idx = (int)Math.floor(Math.random() * messages.length);
-        loading.setText(messages[idx] + ", please wait...");
+        String msg = messages[idx];
+        if (msg == null)
+            msg = "Catching exceptions";
+        loading.setText(msg + ", please wait...");
 
         ImageView eye = (ImageView)findViewById(R.id.splash_gus_eye);
         CyclicTransitionDrawable ctd = new CyclicTransitionDrawable(new Drawable[] {

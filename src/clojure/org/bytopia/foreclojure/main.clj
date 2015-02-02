@@ -49,33 +49,36 @@
   (long-running-job
    (when (api/network-connected?)
      (let [user (:user (like-map (.getIntent a)))]
+       ;; Try relogin
        (when (not (api/logged-in?))
          (user/login-via-saved a user true))
-       (let [last-id (db/initialize a)
-             {:keys [solved-ids new-ids]} (api/fetch-solved-problem-ids last-id)
-             locally-solved (db/get-solved-ids-for-user a user)
-             to-download (clojure.set/difference solved-ids locally-solved)
-             to-upload (clojure.set/difference locally-solved solved-ids)]
-         ;; Mark new problems as solved although we don't have the code yet.
-         (doseq [problem-id to-download]
-           (neko.log/d "Marking problem " problem-id " as solved.")
-           (db/update-solution a user problem-id {:is_solved true, :code nil}))
-         ;; Upload solutions to locally solved problems which aren't synced.
-         (doseq [problem-id to-upload
-                 :let [solution (db/get-solution a user problem-id)]]
-           (neko.log/d "Sumbitting solution " problem-id solution)
-           (if (api/submit-solution problem-id (:solutions/code solution))
-             (db/update-solution a user problem-id {:is_synced true
-                                                    :is_solved true})
-             (on-ui (toast a (str "(???) Server rejected our solution to problem " problem-id)))))
-         ;; Download new problems and insert them into database
-         (doseq [problem-id new-ids]
-           (when-let [json (assoc (api/fetch-problem problem-id)
-                             "id" problem-id)]
-             (db/insert-problem a json)))
-         (when (pos? (+ (count new-ids) (count to-download) (count to-upload)))
-           (on-ui (toast a (format "Downloaded %d new problem(s).\nDiscovered %d server solution(s).\nUploaded %d local solution(s)."
-                                   (count new-ids) (count to-download) (count to-upload)))))))
+       (when (api/logged-in?)
+         (let [last-id (db/initialize a)
+               {:keys [solved-ids new-ids]} (api/fetch-solved-problem-ids last-id)
+               locally-solved (db/get-solved-ids-for-user a user)
+               to-download (clojure.set/difference solved-ids locally-solved)
+               to-upload (clojure.set/difference locally-solved solved-ids)]
+           ;; Mark new problems as solved although we don't have the code yet.
+           (doseq [problem-id to-download]
+             (neko.log/d "Marking problem " problem-id " as solved.")
+             (db/update-solution a user problem-id {:is_solved true, :code nil}))
+           ;; Upload solutions to locally solved problems which aren't synced.
+           (doseq [problem-id to-upload
+                   :let [solution (db/get-solution a user problem-id)]]
+             (neko.log/d "Sumbitting solution " problem-id solution)
+             (if (api/submit-solution problem-id (:solutions/code solution))
+               (db/update-solution a user problem-id {:is_synced true
+                                                      :is_solved true})
+               (on-ui (toast a (str "(???) Server rejected our solution to problem " problem-id)))))
+           ;; Download new problems and insert them into database
+           (doseq [problem-id new-ids]
+             (when-let [json (assoc (api/fetch-problem problem-id)
+                               "id" problem-id)]
+               (db/insert-problem a json)))
+           (when (pos? (+ (count new-ids) (count to-download) (count to-upload)))
+             (on-ui (toast a (format "Downloaded %d new problem(s).\nDiscovered %d server solution(s).\nUploaded %d local solution(s)."
+                                     (count new-ids) (count to-download) (count to-upload))))))
+         (on-ui "Can't login to 4clojure.com. Working in offline mode.")))
      (on-ui (refresh-ui a)))))
 
 ;; (reload-from-server (*a))
