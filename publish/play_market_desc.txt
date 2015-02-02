@@ -1,8 +1,8 @@
 Solve 4clojure.com problems on your mobile phone.
 
-It is time to test you Clojure knowledge and aptitude! 4Clojure is a collection
-of Clojure koans (short programming challenges) of varying difficulty. Easy problems will help novices learn and understand Clojure better, while the hard will trouble even the experienced hackers.
+It is time to test your Clojure knowledge and aptitude! 4Clojure is a collection of Clojure koans (short programming challenges) of varying difficulty. Easy problems will help novices learn and understand Clojure better, while the hard ones problems will trouble even experienced hackers.
 
-Application synchronizes with 4clojure.com website and works in both online and offline mode. I thank http://4clojure.com team for developing and maintaining this great resource, and for allowing me to base the application upon their work.
 
-4Clojure is written under Clojure-Android initiative. Source code for the application: https://github.com/alexander-yakushev/foreclojure-android
+This application synchronizes with the 4clojure.com website and works in both online and offline mode. I thank the 4Clojure team for developing and maintaining this great resource, and for allowing me to base this application upon their work.
+
+The 4Clojure app is written under Clojure-Android initiative. Source code for the application: https://github.com/alexander-yakushev/foreclojure-android
