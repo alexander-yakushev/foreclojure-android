@@ -112,6 +112,7 @@
                         context
                         [:relative-layout {:layout-height [160 :dp]
                                            :id-holder true
+                                           :background-color (android.graphics.Color/WHITE)
                                            :padding [5 :dp]}
                          [:text-view {:id ::title-tv
                                       :text-size [20 :sp]
@@ -161,7 +162,6 @@
   :key :main
   :on-create
   (fn [this bundle]
-    (neko.log/d "onCreate()" this)
     (neko.activity/request-window-features! this :indeterminate-progress)
     ;; (.addFlags (.getWindow this) android.view.WindowManager$LayoutParams/FLAG_KEEP_SCREEN_ON)
     (safe-for-ui
@@ -175,7 +175,12 @@
            [:grid-view {:id ::problems-gv
                         :column-width (traits/to-dimension this [160 :dp])
                         :num-columns :auto-fit
-                        :stretch-mode :stretch-spacing-uniform
+                        :stretch-mode :stretch-column-width
+                        :background-color (android.graphics.Color/rgb 229 229 229)
+                        :horizontal-spacing (traits/to-dimension this [8 :dp])
+                        :vertical-spacing (traits/to-dimension this [8 :dp])
+                        :padding [8 :dp]
+                        :clip-to-padding false
                         :adapter (make-problem-adapter this user)
                         :on-item-click (fn [parent _ position __]
                                          (let [id (-> (.getAdapter parent)
