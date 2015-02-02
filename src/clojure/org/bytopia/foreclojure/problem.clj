@@ -1,5 +1,6 @@
 (ns org.bytopia.foreclojure.problem
-  (:require [neko.action-bar :as action-bar]
+  (:require [clojure.string :as str]
+            [neko.action-bar :as action-bar]
             [neko.activity :refer [defactivity set-content-view!]]
             [neko.data :refer [like-map]]
             [neko.debug :refer [*a safe-for-ui]]
@@ -18,10 +19,10 @@
   (:import android.content.res.Configuration
            android.graphics.Typeface
            android.text.Html
-           android.text.SpannableStringBuilder
+           android.text.InputType
            android.view.View
            [android.widget EditText ListView]
-           org.bytopia.foreclojure.SafeLinkMethod))
+           [org.bytopia.foreclojure SafeLinkMethod CodeboxTextWatcher]))
 
 ;;; Interaction
 
@@ -101,6 +102,13 @@ Please submit a bug report.")))))
 
 (defn clear-result-flags [a]
   (update-test-status a (repeat [:none ""])))
+
+(def core-forms
+  (conj (->> (find-ns 'clojure.core)
+             ns-map keys
+             (keep #(re-matches #"^[a-z].*" (str %)))
+             set)
+        "if" "do" "recur"))
 
 ;; (on-ui (clear-result-flags (*a)))
 
@@ -193,19 +201,20 @@ Please submit a bug report.")))))
                    :layout-below ::desc-tv
                    :text (->> restricted
                               (interpose ", ")
-                              (apply str)
+                              str/join
                               (str "Special restrictions: "))}])
     (make-tests-list tests (if (seq restricted)
                              ::restricted-tv  ::desc-tv))
     [:edit-text {:id ::codebox
                  :layout-below ::tests-lv
+                 :input-type (bit-or InputType/TYPE_TEXT_FLAG_NO_SUGGESTIONS
+                                     InputType/TYPE_TEXT_FLAG_MULTI_LINE)
                  :ime-options android.view.inputmethod.EditorInfo/IME_FLAG_NO_EXTRACT_UI
+                 :single-line false
                  :layout-margin-top [20 :dp]
                  :layout-width :fill
                  :typeface Typeface/MONOSPACE
                  :hint "Type code here"}]]])
-
-;;; Interaction
 
 (defactivity org.bytopia.foreclojure.ProblemActivity
   :key :problem
@@ -225,6 +234,8 @@ Please submit a bug report.")))))
                solved? (and solution (:solutions/is_solved solution))]
            (swap! (.state this) assoc :problem problem, :solution solution)
            (set-content-view! this (problem-ui this problem))
+           (.addTextChangedListener (find-view (*a) ::codebox)
+                                    (CodeboxTextWatcher. core-forms))
            (refresh-ui this code solved?)
            (action-bar/setup-action-bar
             this {:title (str "Problem " (:_id problem))
