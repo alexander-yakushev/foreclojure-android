@@ -12,7 +12,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.ArrayList;
 
-class MyCursorAdapter extends CursorAdapter {
+public class MyCursorAdapter extends CursorAdapter {
 
     private IFn newViewFn;
     private IFn bindViewFn;

@@ -10,7 +10,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import android.util.Log;
 
-class CodeboxTextWatcher implements TextWatcher {
+public class CodeboxTextWatcher implements TextWatcher {
 
     private static String TAG = "org.bytopia.foreclojure.CodeboxTextWatcher";
     private PersistentHashSet coreForms;
