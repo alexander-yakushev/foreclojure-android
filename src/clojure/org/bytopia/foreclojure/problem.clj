@@ -243,6 +243,13 @@ Please submit a bug report.")))))
            (check-solution-on-server this solution)))))
     )
 
+  :on-stop
+  (fn [this]
+    (safe-for-ui
+     (let [code (str (.getText ^EditText (find-view this ::codebox)))]
+       (when-not (= code "")
+         (save-solution this code false)))))
+
   :on-create-options-menu
   (fn [this menu]
     (safe-for-ui
@@ -256,8 +263,5 @@ Please submit a bug report.")))))
   (fn [this item]
     (safe-for-ui
      (if (= (.getItemId item) android.R$id/home)
-       (let [code (str (.getText ^EditText (find-view this ::codebox)))]
-         (when-not (= code "")
-           (save-solution this code false))
-         (.finish this))
+       (.finish this)
        (.superOnOptionsItemSelected this item)))))
