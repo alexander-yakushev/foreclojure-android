@@ -54,7 +54,7 @@
             :build-config {"ENC_ALGORITHM" "Blowfish"
                            "ENC_KEY" #=(get-enc-key)}
             :manifest-options {:app-name "@string/app_name"}
-            :target-version "18"
+            :target-version "15"
             :aot-exclude-ns ["clojure.parallel" "clojure.core.reducers"
                              "cljs-tooling.complete" "cljs-tooling.info"
                              "cljs-tooling.util.analysis" "cljs-tooling.util.misc"
