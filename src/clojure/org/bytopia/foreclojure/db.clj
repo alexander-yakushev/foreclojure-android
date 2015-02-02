@@ -181,7 +181,7 @@
      [:problems/_id :problems/title :problems/description :solutions/is_solved]
      (str "problems LEFT OUTER JOIN solutions ON solutions.problem_id = problems._id "
           "AND solutions.user_id = " user-id)
-     (when-not show-solved? {:solutions/user_id nil}))))
+     (when-not show-solved? {:solutions/is_solved [:or false nil]}))))
 
 ;; (get-problems-cursor (*a :main) "testclient" true)
 
