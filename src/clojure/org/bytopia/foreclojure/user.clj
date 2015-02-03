@@ -2,7 +2,7 @@
   (:require clojure.set
             [neko.activity :refer [defactivity set-content-view!]]
             neko.data
-            [neko.debug :refer [*a safe-for-ui]]
+            [neko.debug :refer [*a]]
             [neko.find-view :refer [find-view find-views]]
             [neko.notify :refer [toast]]
             [neko.threading :refer [on-ui]]
@@ -202,19 +202,16 @@
                   :layout-below))]])
 
 (defactivity org.bytopia.foreclojure.LoginActivity
-  :extends android.accounts.AccountAuthenticatorActivity
   :key :user
-  :state (atom {})
+  :features [:indeterminate-progress :no-title]
   :on-create
   (fn [this bundle]
-    (neko.activity/request-window-features! this :indeterminate-progress :no-title)
+    (neko.debug/keep-screen-on this)
     (.. this (getWindow) (setSoftInputMode android.view.WindowManager$LayoutParams/SOFT_INPUT_STATE_HIDDEN))
-    ;; (.addFlags (.getWindow this) android.view.WindowManager$LayoutParams/FLAG_KEEP_SCREEN_ON)
     (let [this (*a)
           landscape? (= (.. this (getResources) (getConfiguration) orientation)
                         Configuration/ORIENTATION_LANDSCAPE)]
       (on-ui
-        (safe-for-ui
-         (set-content-view! this (activity-ui landscape?))
-         (refresh-ui this))))
+        (set-content-view! this (activity-ui landscape?))
+        (refresh-ui this)))
     ))

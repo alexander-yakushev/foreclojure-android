@@ -218,29 +218,27 @@ Please submit a bug report.")))))
 
 (defactivity org.bytopia.foreclojure.ProblemActivity
   :key :problem
-  :state (atom {})
+  :features [:indeterminate-progress]
   :on-create
   (fn [this bundle]
-    (neko.activity/request-window-features! this :indeterminate-progress)
-    ;; (.addFlags (.getWindow this) android.view.WindowManager$LayoutParams/FLAG_KEEP_SCREEN_ON)
+    (neko.debug/keep-screen-on this)
     (let [;; this (*a)
           ]
-      (safe-for-ui
-       (on-ui
-         (let [{:keys [problem-id user]} (like-map (.getIntent this))
-               problem (db/get-problem this problem-id)
-               solution (db/get-solution this user problem-id)
-               code (or (:solutions/code solution) "")
-               solved? (and solution (:solutions/is_solved solution))]
-           (swap! (.state this) assoc :problem problem, :solution solution)
-           (set-content-view! this (problem-ui this problem))
-           (.addTextChangedListener (find-view (*a) ::codebox)
-                                    (CodeboxTextWatcher. core-forms))
-           (refresh-ui this code solved?)
-           (action-bar/setup-action-bar
-            this {:title (str "Problem " (:_id problem))
-                  :display-options [:show-home :show-title :home-as-up]})
-           (check-solution-on-server this solution)))))
+      (on-ui
+        (let [{:keys [problem-id user]} (like-map (.getIntent this))
+              problem (db/get-problem this problem-id)
+              solution (db/get-solution this user problem-id)
+              code (or (:solutions/code solution) "")
+              solved? (and solution (:solutions/is_solved solution))]
+          (swap! (.state this) assoc :problem problem, :solution solution)
+          (set-content-view! this (problem-ui this problem))
+          (.addTextChangedListener (find-view (*a) ::codebox)
+                                   (CodeboxTextWatcher. core-forms))
+          (refresh-ui this code solved?)
+          (action-bar/setup-action-bar
+           this {:title (str "Problem " (:_id problem))
+                 :display-options [:show-home :show-title :home-as-up]})
+          (check-solution-on-server this solution))))
     )
 
   :on-stop

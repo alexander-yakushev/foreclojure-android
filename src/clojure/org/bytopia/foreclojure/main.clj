@@ -137,18 +137,17 @@
                                     [:problems/description String] [:solutions/is_solved
                                                                     Boolean]])
                              [title desc done] (find-views view ::title-tv ::desc-tv ::done-iv)]
-                         (safe-for-ui
-                          (.setText ^TextView title
-                                    ^String (str (:problems/_id data) ". "
-                                                 (:problems/title data)))
-                          (.setText ^TextView desc ^String
-                                    (let [desc-str (str (Html/fromHtml (:problems/description data)))
-                                          lng (count desc-str)]
-                                      (if (> lng 140)
-                                        (str (subs desc-str 0 140) "...") desc-str)))
-                          (.setVisibility ^android.view.View
-                                          done (if (:solutions/is_solved data)
-                                                 View/VISIBLE View/GONE))))))
+                         (.setText ^TextView title
+                                   ^String (str (:problems/_id data) ". "
+                                                (:problems/title data)))
+                         (.setText ^TextView desc ^String
+                                   (let [desc-str (str (Html/fromHtml (:problems/description data)))
+                                         lng (count desc-str)]
+                                     (if (> lng 140)
+                                       (str (subs desc-str 0 140) "...") desc-str)))
+                         (.setVisibility ^android.view.View
+                                         done (if (:solutions/is_solved data)
+                                                View/VISIBLE View/GONE)))))
                     (fn [position cursor]
                       (safe-for-ui
                        (neko.data.sqlite/entity-from-cursor
@@ -160,35 +159,34 @@
 
 (defactivity org.bytopia.foreclojure.ProblemGridActivity
   :key :main
+  :features [:indeterminate-progress]
   :on-create
   (fn [this bundle]
-    (neko.activity/request-window-features! this :indeterminate-progress)
-    ;; (.addFlags (.getWindow this) android.view.WindowManager$LayoutParams/FLAG_KEEP_SCREEN_ON)
-    (safe-for-ui
-     (on-ui
-       (let [;; this (*a)
-             user (-> (neko.data/get-shared-preferences this "4clojure" :private)
-                      neko.data/like-map
-                      :last-user)]
-         (.putExtra (.getIntent this) "user" user)
-         (set-content-view! this
-           [:grid-view {:id ::problems-gv
-                        :column-width (traits/to-dimension this [160 :dp])
-                        :num-columns :auto-fit
-                        :stretch-mode :stretch-column-width
-                        :background-color (android.graphics.Color/rgb 229 229 229)
-                        :horizontal-spacing (traits/to-dimension this [8 :dp])
-                        :vertical-spacing (traits/to-dimension this [8 :dp])
-                        :padding [8 :dp]
-                        :clip-to-padding false
-                        :adapter (make-problem-adapter this user)
-                        :on-item-click (fn [parent _ position __]
-                                         (let [id (-> (.getAdapter parent)
-                                                      (.getItem position)
-                                                      :problems/_id)]
-                                           (launch-problem-activity this user id)))}])
-         (refresh-ui this)
-         (reload-from-server this))))
+    (neko.debug/keep-screen-on this)
+    (on-ui
+      (let [;; this (*a)
+            user (-> (neko.data/get-shared-preferences this "4clojure" :private)
+                     neko.data/like-map
+                     :last-user)]
+        (.putExtra (.getIntent this) "user" user)
+        (set-content-view! this
+          [:grid-view {:id ::problems-gv
+                       :column-width (traits/to-dimension this [160 :dp])
+                       :num-columns :auto-fit
+                       :stretch-mode :stretch-column-width
+                       :background-color (android.graphics.Color/rgb 229 229 229)
+                       :horizontal-spacing (traits/to-dimension this [8 :dp])
+                       :vertical-spacing (traits/to-dimension this [8 :dp])
+                       :padding [8 :dp]
+                       :clip-to-padding false
+                       :adapter (make-problem-adapter this user)
+                       :on-item-click (fn [parent _ position __]
+                                        (let [id (-> (.getAdapter parent)
+                                                     (.getItem position)
+                                                     :problems/_id)]
+                                          (launch-problem-activity this user id)))}])
+        (refresh-ui this)
+        (reload-from-server this)))
     )
 
   :on-start refresh-ui
