@@ -6,7 +6,7 @@
             [neko.find-view :refer [find-view find-views]]
             [neko.notify :refer [toast]]
             [neko.threading :refer [on-ui]]
-            neko.ui.adapters
+            [neko.ui.adapters :refer [cursor-adapter]]
             [neko.ui :as ui]
             [neko.ui.mapping :refer [defelement]]
             [neko.ui.menu :as menu]
@@ -23,8 +23,7 @@
            [android.widget CursorAdapter GridView TextView]
            android.app.AlertDialog android.app.AlertDialog$Builder
            android.app.Dialog
-           android.content.DialogInterface$OnClickListener
-           org.bytopia.foreclojure.MyCursorAdapter))
+           android.content.DialogInterface$OnClickListener))
 
 (defelement :grid-view
   :classname GridView
@@ -104,58 +103,40 @@
     (refresh-ui a)))
 
 (defn make-problem-adapter [a user]
-  (MyCursorAdapter. a (db/get-problems-cursor
-                       a user (not (hide-solved-problem? a)))
-                    (fn [context cursor parent]
-                      (safe-for-ui
-                       (ui/make-ui-element
-                        context
-                        [:relative-layout {:layout-height [160 :dp]
-                                           :id-holder true
-                                           :background-color (android.graphics.Color/WHITE)
-                                           :padding [5 :dp]}
-                         [:text-view {:id ::title-tv
-                                      :text-size [20 :sp]
-                                      :typeface android.graphics.Typeface/DEFAULT_BOLD}]
-                         [:text-view {:id ::desc-tv
-                                      :layout-below ::title-tv}]
-                         [:image-view {:id ::done-iv
-                                       :image #res/drawable :org.bytopia.foreclojure/check-icon
-                                       :layout-width [50 :dp]
-                                       :layout-height [50 :dp]
-                                       :visibility :gone
-                                       :layout-align-parent-bottom true
-                                       :layout-align-parent-right true
-                                       :layout-margin-bottom [5 :dp]
-                                       :layout-margin-right [5 :dp]}]]
-                        {:container-type :abs-listview-layout})))
-                    (fn [view context cursor]
-                      (safe-for-ui
-                       (let [data (neko.data.sqlite/entity-from-cursor
-                                   cursor
-                                   [[:problems/_id Integer] [:problems/title String]
-                                    [:problems/description String] [:solutions/is_solved
-                                                                    Boolean]])
-                             [title desc done] (find-views view ::title-tv ::desc-tv ::done-iv)]
-                         (.setText ^TextView title
-                                   ^String (str (:problems/_id data) ". "
-                                                (:problems/title data)))
-                         (.setText ^TextView desc ^String
-                                   (let [desc-str (str (Html/fromHtml (:problems/description data)))
-                                         lng (count desc-str)]
-                                     (if (> lng 140)
-                                       (str (subs desc-str 0 140) "...") desc-str)))
-                         (.setVisibility ^android.view.View
-                                         done (if (:solutions/is_solved data)
-                                                View/VISIBLE View/GONE)))))
-                    (fn [position cursor]
-                      (safe-for-ui
-                       (neko.data.sqlite/entity-from-cursor
-                        cursor
-                        ;; (proxy-super getItem position)
-                        [[:problems/_id Integer] [:problems/title String]
-                         [:problems/description String] [:solutions/is_solved
-                                                         Boolean]])))))
+  (cursor-adapter
+   a (db/get-problems-cursor a user (not (hide-solved-problem? a)))
+   (fn [ctx]
+     [:relative-layout {:layout-height [160 :dp]
+                        :id-holder true
+                        :background-color (android.graphics.Color/WHITE)
+                        :padding [5 :dp]}
+      [:text-view {:id ::title-tv
+                   :text-size [20 :sp]
+                   :typeface android.graphics.Typeface/DEFAULT_BOLD}]
+      [:text-view {:id ::desc-tv
+                   :layout-below ::title-tv}]
+      [:image-view {:id ::done-iv
+                    :image #res/drawable :org.bytopia.foreclojure/check-icon
+                    :layout-width [50 :dp]
+                    :layout-height [50 :dp]
+                    :visibility :gone
+                    :layout-align-parent-bottom true
+                    :layout-align-parent-right true
+                    :layout-margin-bottom [5 :dp]
+                    :layout-margin-right [5 :dp]}]])
+   (fn [view _ data]
+     (let [[title desc done] (find-views view ::title-tv ::desc-tv ::done-iv)]
+       (.setText ^TextView title
+                 ^String (str (:problems/_id data) ". "
+                              (:problems/title data)))
+       (.setText ^TextView desc ^String
+                 (let [desc-str (str (Html/fromHtml (:problems/description data)))
+                       lng (count desc-str)]
+                   (if (> lng 140)
+                     (str (subs desc-str 0 140) "...") desc-str)))
+       (.setVisibility ^android.view.View
+                       done (if (:solutions/is_solved data)
+                              View/VISIBLE View/GONE))))))
 
 (defactivity org.bytopia.foreclojure.ProblemGridActivity
   :key :main
