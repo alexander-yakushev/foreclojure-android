@@ -13,17 +13,19 @@
   - Full offline support (network is not required to solve problems,
     solutions can be synchronized later)
   - In-client registration
+  - Acceptable code editor (with highlighting and indentation)
 
   Plans for future:
-  - Proper code editor (with highlighting and indentation)
   - Code golf
   - Integration with Clojail
 
 * How to build
 
-  Execute =lein droid doall= inside the repository.
+  Set =:sdk-path= in =:android= map in =project.clj=. Execute =lein droid doall=
+  inside the repository.
 
-  For more information on Clojure-Android initiative check [[http://clojure-android.info/][clojure-android.info]].
+  For more information on Clojure-Android initiative check [[http://clojure-android.info/][clojure-android.info]]
+  and [[https://github.com/clojure-android/lein-droid/wiki/Tutorial][lein-droid tutorial]].
 
 * Acknowledgments
 
