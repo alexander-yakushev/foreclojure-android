@@ -5,6 +5,7 @@
             [neko.debug :refer [*a safe-for-ui]]
             [neko.find-view :refer [find-view find-views]]
             [neko.notify :refer [toast]]
+            neko.resource
             [neko.threading :refer [on-ui]]
             [neko.ui.adapters :refer [cursor-adapter]]
             [neko.ui :as ui]
@@ -24,6 +25,8 @@
            android.app.AlertDialog android.app.AlertDialog$Builder
            android.app.Dialog
            android.content.DialogInterface$OnClickListener))
+
+(neko.resource/import-all)
 
 (defelement :grid-view
   :classname GridView
@@ -116,7 +119,7 @@
       [:text-view {:id ::desc-tv
                    :layout-below ::title-tv}]
       [:image-view {:id ::done-iv
-                    :image #res/drawable :org.bytopia.foreclojure/check-icon
+                    :image R$drawable/check_icon
                     :layout-width [50 :dp]
                     :layout-height [50 :dp]
                     :visibility :gone
@@ -184,12 +187,12 @@
                       :checked (not (hide-solved-problem? this))
                       :on-click (fn [_] (safe-for-ui (toggle-hide-solved this)))}]
               [:item {:title "Reload"
-                      :icon #res/drawable :org.bytopia.foreclojure/ic-menu-refresh
+                      :icon R$drawable/ic_menu_refresh
                       :show-as-action :always
                       :on-click (fn [_] (safe-for-ui (reload-from-server this)))}]
               [:item {:title (format "%s (%s)" user
                                      (if online? "online" "offline"))
-                      :icon #res/drawable :org.bytopia.foreclojure/ic-menu-friendslist
+                      :icon R$drawable/ic_menu_friendslist
                       :show-as-action [:always :with-text]
                       :on-click (fn [_] (safe-for-ui (.showDialog this 0)))}]])))))
 

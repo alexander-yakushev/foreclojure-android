@@ -10,6 +10,7 @@
             [neko.ui :as ui]
             [neko.ui.mapping :refer [defelement]]
             [neko.ui.menu :as menu]
+            neko.resource
             [neko.ui.traits :as traits]
             [org.bytopia.foreclojure
              [db :as db]
@@ -27,6 +28,8 @@
            javax.crypto.SecretKey
            javax.crypto.spec.SecretKeySpec
            [org.bytopia.foreclojure BuildConfig SafeLinkMethod]))
+
+(neko.resource/import-all)
 
 (def secret-key (SecretKeySpec. (.getBytes BuildConfig/ENC_KEY)
                                 BuildConfig/ENC_ALGORITHM))
@@ -190,7 +193,7 @@
      [:text-view {:id ::welcome-tv
                   :text "Welcome to 4Clojure*!"
                   :text-size [22 :sp]}]
-     [:image-view {:image #res/drawable :org.bytopia.foreclojure/foreclj-logo
+     [:image-view {:image R$drawable/foreclj_logo
                    :layout-height (traits/to-dimension (*a) (if landscape? [250 :dp] [320 :dp]))}]
      [:text-view {:text (Html/fromHtml "*This is an unofficial client for <a href=\"http://4clojure.com\">4clojure.com</a>")
                   :movement-method (SafeLinkMethod/getInstance)

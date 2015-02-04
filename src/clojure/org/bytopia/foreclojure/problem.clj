@@ -6,6 +6,7 @@
             [neko.debug :refer [*a safe-for-ui]]
             [neko.find-view :refer [find-view find-views]]
             [neko.notify :refer [toast]]
+            neko.resource
             [neko.threading :refer [on-ui]]
             [neko.ui :as ui]
             [neko.ui.mapping :refer [defelement]]
@@ -24,6 +25,8 @@
            [android.widget EditText ListView]
            [org.bytopia.foreclojure SafeLinkMethod CodeboxTextWatcher]))
 
+(neko.resource/import-all)
+
 ;;; Interaction
 
 (defn update-test-status
@@ -39,8 +42,8 @@
                                        android.view.View/INVISIBLE
                                        android.view.View/VISIBLE)
                          :image (if (= imgv-state :good)
-                                  #res/drawable :org.bytopia.foreclojure/check_icon
-                                  #res/drawable :android/ic-delete))
+                                  R$drawable/check_icon
+                                  android.R$drawable/ic_delete))
               (ui/config errv :text (str err-msg))))
           (range (.getChildCount tests-lv))
           status-list)))
@@ -118,7 +121,7 @@ Please submit a bug report.")))))
   [:linear-layout {:id-holder true, :id i
                    :layout-margin-top [10 :dp]}
    [:image-view {:id ::status-iv
-                 :image #res/drawable :android/ic-delete
+                 :image android.R$drawable/ic_delete
                  :scale-type :fit-xy
                  :layout-width (neko.ui.traits/to-dimension (*a) [20 :dp])
                  :layout-height (neko.ui.traits/to-dimension (*a) [20 :dp])
@@ -186,7 +189,7 @@ Please submit a bug report.")))))
                    :padding [5 :dp]}])
     [:image-view {:id ::solved-iv
                   :layout-to-right-of ::title-tv
-                  :image #res/drawable :org.bytopia.foreclojure/check-icon
+                  :image R$drawable/check_icon
                   :layout-height [24 :sp]
                   :layout-width [24 :sp]
                   :layout-margin-left [10 :dp]
@@ -253,7 +256,7 @@ Please submit a bug report.")))))
     (safe-for-ui
      (menu/make-menu
       menu [[:item {:title "Run"
-                    :icon #res/drawable :android/ic-menu-send
+                    :icon android.R$drawable/ic_menu_send
                     :show-as-action [:always :with-text]
                     :on-click (fn [_] (safe-for-ui (run-solution this)))}]])))
 
