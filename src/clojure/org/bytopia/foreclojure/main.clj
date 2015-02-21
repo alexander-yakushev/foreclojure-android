@@ -104,10 +104,53 @@
     (-> sp .edit (neko.data/assoc! :hide-solved? (not previous)) .commit)
     (refresh-ui a)))
 
+(defn html->short-str [html]
+  (let [s (str (Html/fromHtml html))
+        lng (count s)]
+    (if (> lng 140)
+      (str (subs s 0 140) "...") s)))
+
+(def ^LruCache cache
+  (memoize (fn [] (LruCache. 50))))
+
+(defn problem-description-str [problem]
+  (let [cache (cache)
+        id (or (:_id problem) (:problems/_id problem))
+        cached-desc (.get cache id)]
+    (if-not cached-desc
+      (let [desc (html->short-str (or (:description problem)
+                                      (:problems/description problem)))]
+        (.put cache id desc)
+        desc)
+      cached-desc)))
+
+(def problem-queue (LinkedBlockingDeque.))
+
+(defn start-preloading-thread
+  "Spins a thread that monitors id-queue and preloads next problem descriptions
+  onto cache. Returns a function that kills the thread."
+  [ctx]
+  (let [dead-switch (atom false)]
+    (-> (Thread. (fn []
+                   (log/d "Preloading thread started")
+                   (while (not @dead-switch)
+                     (let [id (.take problem-queue)]
+                       (neko.log/d "Preloading from id " id)
+                       ;; Cache next 10 elements after requested one
+                       (doall (map (fn [i]
+                                     (try (problem-description-str (db/get-problem ctx i))
+                                          (catch Exception _ nil)))
+                                   (range id (+ id 10))))))
+                   (log/d "Preloading thread stopped")))
+        .start)
+    (fn [] (reset! dead-switch true))))
+
+;; (start-preloading-thread (*a))
+
 (defn make-problem-adapter [a user]
-  (cursor-adapter
-   a (db/get-problems-cursor a user (not (hide-solved-problem? a)))
-   (fn [ctx]
+  (adapters/cursor-adapter
+   a
+   (fn []
      [:relative-layout {:layout-height [160 :dp]
                         :id-holder true
                         :background-color (android.graphics.Color/WHITE)
@@ -127,18 +170,17 @@
                     :layout-margin-bottom [5 :dp]
                     :layout-margin-right [5 :dp]}]])
    (fn [view _ data]
-     (let [[title desc done] (find-views view ::title-tv ::desc-tv ::done-iv)]
+     (let [[title desc done] (find-views view ::title-tv ::desc-tv ::done-iv)
+           id (:problems/_id data)]
        (.setText ^TextView title
-                 ^String (str (:problems/_id data) ". "
-                              (:problems/title data)))
-       (.setText ^TextView desc ^String
-                 (let [desc-str (str (Html/fromHtml (:problems/description data)))
-                       lng (count desc-str)]
-                   (if (> lng 140)
-                     (str (subs desc-str 0 140) "...") desc-str)))
+                 ^String (str id ". " (:problems/title data)))
+       (.setText ^TextView desc ^String (problem-description-str data))
+       (when (= (mod id 10) 1)
+         (.put problem-queue id))
        (.setVisibility ^android.view.View
                        done (if (:solutions/is_solved data)
-                              View/VISIBLE View/GONE))))))
+                              View/VISIBLE View/GONE))))
+   (fn [] (db/get-problems-cursor a user (not (hide-solved-problem? a))))))
 
 (defactivity org.bytopia.foreclojure.ProblemGridActivity
   :key :main
@@ -172,10 +214,16 @@
         (reload-from-server this)))
     )
 
-  :on-start refresh-ui
+  :on-start (fn [this]
+              (refresh-ui this)
+              (swap! (.state this) assoc
+                     :pr-thread (start-preloading-thread this)))
+
+  :on-stop (fn [this]
+             ((:pr-thread @(.state this))))
 
   :on-create-options-menu
-  (fn [this menu]
+  (fn [^org.bytopia.foreclojure.ProblemGridActivity this menu]
     (safe-for-ui
      (let [user (:user (like-map (.getIntent this)))
            online? (api/logged-in?)]
