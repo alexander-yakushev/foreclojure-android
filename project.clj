@@ -17,9 +17,9 @@
   :source-paths ["src/clojure" "src"]
   :java-source-paths ["src/java"]
   :javac-options ["-target" "1.6" "-source" "1.6" "-Xlint:-options"]
-  :plugins [[lein-droid "0.3.1"]]
+  :plugins [[lein-droid "0.3.3"]]
 
-  :dependencies [[neko/neko "3.1.2-SNAPSHOT"]
+  :dependencies [[neko/neko "3.2.0"]
                  [org.clojure-android/data.json "0.2.6-SNAPSHOT"]]
   :profiles {:default [:dev]
 
@@ -32,22 +32,19 @@
                          :rename-manifest-package "org.bytopia.foreclojure.debug"
                          :manifest-options {:app-name "4Clojure - debug"}}}]
 
-             :release
-             [:android-common :android-release
-              {:dependencies [[org.clojure-android/clojure "1.7.0-alpha4" :use-resources true]]
-               :target-path "target/release"
-               :android
-               {:ignore-log-priority [:debug :verbose]
-                :enable-dynamic-compilation true
-                :aot :all
-                :build-type :release}}]
-
              :testing
-             [:release
-              {:android {:keystore-path "/home/unlogic/.android/debug.keystore"
-                         :key-alias "androiddebugkey"
-                         :keypass "android"
-                         :storepass "android"}}]}
+             [:android-common
+              {:dependencies [[org.clojure-android/clojure "1.7.0-alpha4" :use-resources true]
+                              [org.clojure-android/tools.nrepl "0.2.6"]]
+               :target-path "target/testing"
+               :android {:ignore-log-priority [:debug :verbose]
+                         :enable-dynamic-compilation true
+                         :aot :all}}]
+
+             :release
+             [:android-common :android-release :testing
+              {:target-path "target/release"
+               :android {:build-type :release}}]}
 
   :android {:dex-opts ["-JXmx4096M"]
             ;; :force-dex-optimize true
