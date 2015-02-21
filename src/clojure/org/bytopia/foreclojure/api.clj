@@ -60,7 +60,7 @@
   "Sends a synchronous GET request."
   ([data]
    (http-get (DefaultHttpClient.) data))
-  ([client {:keys [url]}]
+  ([^DefaultHttpClient client {:keys [url]}]
    (let [request (HttpGet. ^String url)
          response (.execute client request)]
      {:status (.getStatusLine response)
@@ -191,7 +191,7 @@
   string if something is wrong, or nil if everything is fine. Mostly taken from
   4clojure.com code."
   [username email pwd pwdx2]
-  (let [username (.toLowerCase username)]
+  (let [username (.toLowerCase ^String username)]
     (cond  (< (count username) 4) "Username is too short."
            (> (count username) 13) "Username is too long."
 

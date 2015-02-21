@@ -19,8 +19,7 @@
              [utils :refer [long-running-job]]])
   (:import android.content.res.Configuration
            android.graphics.Typeface
-           android.text.Html
-           android.text.InputType
+           [android.text Html InputType Spannable]
            android.view.View
            [android.widget EditText ListView]
            [org.bytopia.foreclojure SafeLinkMethod CodeboxTextWatcher]))
@@ -155,13 +154,14 @@ Please submit a bug report.")))))
 (defn- render-html
   "Sometimes description comes to us in HTML. Let's make it pretty."
   [^String html]
-  (let [spannable (-> html
-                      (.replace "</li>" "</li><br>")
-                      (.replace "<li>" "<li>&nbsp; • &nbsp;")
-                      ;; Fix internal links
-                      (.replace "<a href=\"/" "<a href=\"http://4clojure.com/")
-                      (.replace "<a href='/" "<a href='http://4clojure.com/")
-                      Html/fromHtml)]
+  (let [^Spannable spannable
+        (-> html
+            (.replace "</li>" "</li><br>")
+            (.replace "<li>" "<li>&nbsp; • &nbsp;")
+            ;; Fix internal links
+            (.replace "<a href=\"/" "<a href=\"http://4clojure.com/")
+            (.replace "<a href='/" "<a href='http://4clojure.com/")
+            Html/fromHtml)]
     ;; Remove extra newlines introduced by <p> tag.
     (loop [i (dec (.length spannable))]
       (if (= (.charAt spannable i) \newline)
@@ -235,7 +235,7 @@ Please submit a bug report.")))))
               solved? (and solution (:solutions/is_solved solution))]
           (swap! (.state this) assoc :problem problem, :solution solution)
           (set-content-view! this (problem-ui this problem))
-          (.addTextChangedListener (find-view (*a) ::codebox)
+          (.addTextChangedListener ^EditText (find-view this ::codebox)
                                    (CodeboxTextWatcher. core-forms))
           (refresh-ui this code solved?)
           (action-bar/setup-action-bar

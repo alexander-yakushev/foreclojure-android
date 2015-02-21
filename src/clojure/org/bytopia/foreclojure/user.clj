@@ -16,7 +16,7 @@
              [db :as db]
              [api :as api]
              [utils :refer [long-running-job]]])
-  (:import android.app.ProgressDialog
+  (:import [android.app ProgressDialog Activity]
            android.content.Intent
            android.content.res.Configuration
            android.text.Html
@@ -31,15 +31,16 @@
 
 (neko.resource/import-all)
 
-(def secret-key (SecretKeySpec. (.getBytes BuildConfig/ENC_KEY)
-                                BuildConfig/ENC_ALGORITHM))
+(def ^SecretKeySpec secret-key
+  (SecretKeySpec. (.getBytes BuildConfig/ENC_KEY)
+                  BuildConfig/ENC_ALGORITHM))
 
-(defn- encrypt-pwd [password]
+(defn- encrypt-pwd [^String password]
   (let [cipher (doto (Cipher/getInstance BuildConfig/ENC_ALGORITHM)
                  (.init Cipher/ENCRYPT_MODE secret-key))]
     (.doFinal cipher (.getBytes password))))
 
-(defn- decrypt-pwd [password-bytes]
+(defn- decrypt-pwd [^bytes password-bytes]
   (let [cipher (doto (Cipher/getInstance BuildConfig/ENC_ALGORITHM)
                  (.init Cipher/DECRYPT_MODE secret-key))]
     (String. (.doFinal cipher password-bytes))))
@@ -83,7 +84,7 @@
   (let [pwd (:password (lookup-user a username))]
     (api/login username pwd force?)))
 
-(defn register [a]
+(defn register [^Activity a]
   (let [[username email pwd pwdx2 :as creds]
         (map (fn [^EditText et] (str (.getText ^EditText et)))
              (find-views a ::user-et ::email-et ::pwd-et ::pwdx2-et))
@@ -170,7 +171,7 @@
       [:button (assoc basis
                  :id ::signup-but
                  :layout-margin-left [30 :dp]
-                 :on-click (fn [w]
+                 :on-click (fn [^View w]
                              (let [a (.getContext w)
                                    state (.state a)]
                                (if (not (:signup-active? @state))
@@ -208,7 +209,7 @@
   :key :user
   :features [:indeterminate-progress :no-title]
   :on-create
-  (fn [this bundle]
+  (fn [^org.bytopia.foreclojure.LoginActivity this bundle]
     (neko.debug/keep-screen-on this)
     (.. this (getWindow) (setSoftInputMode android.view.WindowManager$LayoutParams/SOFT_INPUT_STATE_HIDDEN))
     (let [this (*a)

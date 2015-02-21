@@ -4,10 +4,11 @@
             [neko.data :refer [like-map]]
             [neko.debug :refer [*a safe-for-ui]]
             [neko.find-view :refer [find-view find-views]]
+            [neko.log :as log]
             [neko.notify :refer [toast]]
             neko.resource
             [neko.threading :refer [on-ui]]
-            [neko.ui.adapters :refer [cursor-adapter]]
+            [neko.ui.adapters :as adapters]
             [neko.ui :as ui]
             [neko.ui.mapping :refer [defelement]]
             [neko.ui.menu :as menu]
@@ -17,14 +18,17 @@
              [api :as api]
              [utils :refer [long-running-job]]
              [user :as user]])
-  (:import android.content.Intent
+  (:import android.app.Activity
+           android.app.AlertDialog
+           android.app.AlertDialog$Builder
+           android.app.Dialog
+           android.content.DialogInterface$OnClickListener
+           android.content.Intent
            android.text.Html
-           android.app.Activity
+           android.util.LruCache
            android.view.View
            [android.widget CursorAdapter GridView TextView]
-           android.app.AlertDialog android.app.AlertDialog$Builder
-           android.app.Dialog
-           android.content.DialogInterface$OnClickListener))
+           java.util.concurrent.LinkedBlockingDeque))
 
 (neko.resource/import-all)
 
@@ -37,13 +41,9 @@
       like-map
       :hide-solved?))
 
-(defn refresh-ui [a]
-  (let [user (:user (like-map (.getIntent a)))]
-    (doto (.getAdapter (find-view a ::problems-gv))
-      (.changeCursor (db/get-problems-cursor
-                      a user (not (hide-solved-problem? a))))
-      (.notifyDataSetChanged))
-    (.invalidateOptionsMenu a)))
+(defn refresh-ui [^Activity a]
+  (adapters/update-cursor (.getAdapter ^GridView (find-view a ::problems-gv)))
+  (.invalidateOptionsMenu a))
 
 ;; (on-ui (refresh-ui (*a)))
 
@@ -87,7 +87,7 @@
 
 (defn launch-problem-activity
   [a user problem-id]
-  (let [intent (Intent. a (resolve 'org.bytopia.foreclojure.ProblemActivity))]
+  (let [^Intent intent (Intent. a (resolve 'org.bytopia.foreclojure.ProblemActivity))]
     (.putExtra intent "problem-id" problem-id)
     (.putExtra intent "user" user)
     (.startActivity a intent)))
@@ -101,7 +101,6 @@
 (defn toggle-hide-solved [a]
   (let [sp (neko.data/get-shared-preferences a "4clojure" :private)
         previous (-> sp like-map :hide-solved?)]
-    (neko.log/d "Toggled" previous)
     (-> sp .edit (neko.data/assoc! :hide-solved? (not previous)) .commit)
     (refresh-ui a)))
 
@@ -164,7 +163,7 @@
                        :padding [8 :dp]
                        :clip-to-padding false
                        :adapter (make-problem-adapter this user)
-                       :on-item-click (fn [parent _ position __]
+                       :on-item-click (fn [^GridView parent, _ position __]
                                         (let [id (-> (.getAdapter parent)
                                                      (.getItem position)
                                                      :problems/_id)]
