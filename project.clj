@@ -19,7 +19,7 @@
   :javac-options ["-target" "1.6" "-source" "1.6" "-Xlint:-options"]
   :plugins [[lein-droid "0.3.3"]]
 
-  :dependencies [[neko/neko "3.2.0-preview1"]
+  :dependencies [[neko/neko "3.2.0-preview3"]
                  [org.clojure-android/data.json "0.2.6-SNAPSHOT"]]
   :profiles {:default [:dev]
 
