@@ -2,6 +2,7 @@
   (:require clojure.set
             [neko.activity :refer [defactivity set-content-view!]]
             [neko.data :refer [like-map]]
+            neko.data.shared-prefs
             [neko.debug :refer [*a safe-for-ui]]
             [neko.find-view :refer [find-view find-views]]
             [neko.log :as log]
@@ -37,7 +38,7 @@
   :traits [:on-item-click])
 
 (defn hide-solved-problem? [a]
-  (-> (neko.data/get-shared-preferences a "4clojure" :private)
+  (-> (neko.data.shared-prefs/get-shared-preferences a "4clojure" :private)
       like-map
       :hide-solved?))
 
@@ -71,15 +72,15 @@
              (if (api/submit-solution problem-id (:solutions/code solution))
                (db/update-solution a user problem-id {:is_synced true
                                                       :is_solved true})
-               (on-ui (toast a (str "(???) Server rejected our solution to problem " problem-id)))))
+               (on-ui (toast (str "(???) Server rejected our solution to problem " problem-id)))))
            ;; Download new problems and insert them into database
            (doseq [problem-id new-ids]
              (when-let [json (assoc (api/fetch-problem problem-id)
                                "id" problem-id)]
                (db/insert-problem a json)))
            (when (pos? (+ (count new-ids) (count to-download) (count to-upload)))
-             (on-ui (toast a (format "Downloaded %d new problem(s).\nDiscovered %d server solution(s).\nUploaded %d local solution(s)."
-                                     (count new-ids) (count to-download) (count to-upload))))))
+             (on-ui (toast (format "Downloaded %d new problem(s).\nDiscovered %d server solution(s).\nUploaded %d local solution(s)."
+                                   (count new-ids) (count to-download) (count to-upload))))))
          (on-ui "Can't login to 4clojure.com. Working in offline mode.")))
      (on-ui (refresh-ui a)))))
 
@@ -99,9 +100,9 @@
   (.finish a))
 
 (defn toggle-hide-solved [a]
-  (let [sp (neko.data/get-shared-preferences a "4clojure" :private)
+  (let [sp (neko.data.shared-prefs/get-shared-preferences a "4clojure" :private)
         previous (-> sp like-map :hide-solved?)]
-    (-> sp .edit (neko.data/assoc! :hide-solved? (not previous)) .commit)
+    (-> sp .edit (neko.data.shared-prefs/put :hide-solved? (not previous)) .commit)
     (refresh-ui a)))
 
 (defn html->short-str [html]
@@ -164,7 +165,7 @@
                     :image R$drawable/check_icon
                     :layout-width [50 :dp]
                     :layout-height [50 :dp]
-                    :visibility :gone
+                    ;; :visibility :gone
                     :layout-align-parent-bottom true
                     :layout-align-parent-right true
                     :layout-margin-bottom [5 :dp]
@@ -185,12 +186,13 @@
 (defactivity org.bytopia.foreclojure.ProblemGridActivity
   :key :main
   :features [:indeterminate-progress]
-  :on-create
-  (fn [this bundle]
+
+  (onCreate [this bundle]
+    (.superOnCreate this bundle)
     (neko.debug/keep-screen-on this)
     (on-ui
       (let [;; this (*a)
-            user (-> (neko.data/get-shared-preferences this "4clojure" :private)
+            user (-> (neko.data.shared-prefs/get-shared-preferences this "4clojure" :private)
                      neko.data/like-map
                      :last-user)]
         (.putExtra (.getIntent this) "user" user)
@@ -214,16 +216,18 @@
         (reload-from-server this)))
     )
 
-  :on-start (fn [this]
-              (refresh-ui this)
-              (swap! (.state this) assoc
-                     :pr-thread (start-preloading-thread this)))
+  (onStart [this]
+    (.superOnStart this)
+    (refresh-ui this)
+    (swap! (.state this) assoc
+           :pr-thread (start-preloading-thread this)))
 
-  :on-stop (fn [this]
-             ((:pr-thread @(.state this))))
+  (onStop [this]
+    (.superOnStop this)
+    ((:pr-thread @(.state this))))
 
-  :on-create-options-menu
-  (fn [^org.bytopia.foreclojure.ProblemGridActivity this menu]
+  (onCreateOptionsMenu [this menu]
+    (.superOnCreateOptionsMenu this menu)
     (safe-for-ui
      (let [user (:user (like-map (.getIntent this)))
            online? (api/logged-in?)]
@@ -241,23 +245,24 @@
                                      (if online? "online" "offline"))
                       :icon R$drawable/ic_menu_friendslist
                       :show-as-action [:always :with-text]
-                      :on-click (fn [_] (safe-for-ui (.showDialog this 0)))}]])))))
+                      :on-click (fn [_] (safe-for-ui (.showDialog this 0)))}]]))
+     true))
+
+  (onCreateDialog [this id _]
+    (safe-for-ui
+     (when (= id 0)
+       (-> (AlertDialog$Builder. this)
+           (.setMessage (str "Do you want to log out of the current account? "
+                             "Pressing OK will return you to login form."))
+           (.setCancelable true)
+           (.setPositiveButton "OK" (reify DialogInterface$OnClickListener
+                                      (onClick [_ dialog id]
+                                        (switch-user this))))
+           (.setNegativeButton "Cancel" (reify DialogInterface$OnClickListener
+                                          (onClick [_ dialog id]
+                                            (.cancel dialog))))
+           .create)))))
 
 ;; (on-ui (refresh-ui (*a)))
-
-(defn ProblemGridActivity-onCreateDialog [this id _]
-  (safe-for-ui
-   (when (= id 0)
-     (-> (AlertDialog$Builder. this)
-         (.setMessage (str "Do you want to log out of the current account? "
-                           "Pressing OK will return you to login form."))
-         (.setCancelable true)
-         (.setPositiveButton "OK" (reify DialogInterface$OnClickListener
-                                    (onClick [_ dialog id]
-                                      (switch-user this))))
-         (.setNegativeButton "Cancel" (reify DialogInterface$OnClickListener
-                                        (onClick [_ dialog id]
-                                          (.cancel dialog))))
-         .create))))
 
 ;; (on-ui (.showDialog (*a) 0))

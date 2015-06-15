@@ -17,34 +17,33 @@
   :source-paths ["src/clojure" "src"]
   :java-source-paths ["src/java"]
   :javac-options ["-target" "1.6" "-source" "1.6" "-Xlint:-options"]
-  :plugins [[lein-droid "0.3.3"]]
+  :plugins [[lein-droid "0.4.0-alpha3"]]
 
-  :dependencies [[neko/neko "3.2.0-preview3"]
+  :dependencies [[org.clojure-android/clojure "1.7.0-RC1" :use-resources true]
+                 [neko/neko "4.0.0-alpha1"]
                  [org.clojure-android/data.json "0.2.6-SNAPSHOT"]]
   :profiles {:default [:dev]
 
              :dev
              [:android-common :android-user
-              {:dependencies [[org.clojure-android/clojure "1.7.0-alpha3" :use-resources true]
-                              [org.clojure-android/tools.nrepl "0.2.6"]]
+              {:dependencies [[org.clojure/tools.nrepl "0.2.10"]]
                :target-path "target/debug"
                :android {:aot :all-with-unused
                          :rename-manifest-package "org.bytopia.foreclojure.debug"
                          :manifest-options {:app-name "4Clojure - debug"}}}]
 
-             :testing
+             :release
              [:android-common
-              {:dependencies [[org.clojure-android/clojure "1.7.0-alpha4" :use-resources true]
-                              [org.clojure-android/tools.nrepl "0.2.6"]]
-               :target-path "target/testing"
+              {:target-path "target/release"
                :android {:ignore-log-priority [:debug :verbose]
                          :enable-dynamic-compilation true
-                         :aot :all}}]
+                         :aot :all
+                         :build-type :release}}]
 
-             :release
-             [:android-common :android-release :testing
-              {:target-path "target/release"
-               :android {:build-type :release}}]}
+             :pre-release
+             [:release
+              {:target-path "target/pre-release"
+               :android {:use-debug-keystore true}}]}
 
   :android {:dex-opts ["-JXmx4096M"]
             ;; :force-dex-optimize true

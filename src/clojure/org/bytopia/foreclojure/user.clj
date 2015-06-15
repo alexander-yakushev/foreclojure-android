@@ -2,6 +2,7 @@
   (:require clojure.set
             [neko.activity :refer [defactivity set-content-view!]]
             neko.data
+            neko.data.shared-prefs
             [neko.debug :refer [*a]]
             [neko.find-view :refer [find-view find-views]]
             [neko.notify :refer [toast]]
@@ -52,13 +53,13 @@
   (update-in (db/get-user a username) [:password] decrypt-pwd))
 
 (defn set-last-user [a username]
-  (-> (neko.data/get-shared-preferences a "4clojure" :private)
+  (-> (neko.data.shared-prefs/get-shared-preferences a "4clojure" :private)
       .edit
-      (neko.data/assoc! :last-user username)
+      (neko.data.shared-prefs/put :last-user username)
       .commit))
 
 (defn clear-last-user [a]
-  (-> (neko.data/get-shared-preferences a "4clojure" :private)
+  (-> (neko.data.shared-prefs/get-shared-preferences a "4clojure" :private)
       .edit
       (.remove "last-user")
       .commit))
@@ -77,7 +78,7 @@
               (.startActivity
                a (Intent. a (resolve 'org.bytopia.foreclojure.ProblemGridActivity)))
               (.finish a))
-          (on-ui a (toast "Could not sign in. Please check the correctness of your credentials.")))
+          (on-ui a (toast "Could not sign in. Please check the correctness of your credentials." :short)))
         (finally (on-ui (.dismiss progress)))))))
 
 (defn login-via-saved [a username force?]
@@ -100,8 +101,8 @@
                 (.startActivity
                  a (Intent. a (resolve 'org.bytopia.foreclojure.ProblemGridActivity)))
                 (.finish a))
-            (on-ui a (toast a error :long))))
-        (catch Exception ex (on-ui (toast a (str "Exception raised: " ex))))
+            (on-ui a (toast error))))
+        (catch Exception ex (on-ui (toast (str "Exception raised: " ex))))
         (finally (on-ui (.dismiss progress)))))))
 
 (defn refresh-ui [a]
@@ -208,8 +209,9 @@
 (defactivity org.bytopia.foreclojure.LoginActivity
   :key :user
   :features [:indeterminate-progress :no-title]
-  :on-create
-  (fn [^org.bytopia.foreclojure.LoginActivity this bundle]
+
+  (onCreate [this bundle]
+    (.superOnCreate this bundle)
     (neko.debug/keep-screen-on this)
     (.. this (getWindow) (setSoftInputMode android.view.WindowManager$LayoutParams/SOFT_INPUT_STATE_HIDDEN))
     (let [this (*a)

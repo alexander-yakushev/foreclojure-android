@@ -77,7 +77,7 @@
                                                       :is_synced true})
                (throw (RuntimeException. "Server rejected our solution!
 Please submit a bug report.")))))
-         (on-ui (toast a "Correct! Please proceed to the next problem.")))))))
+         (on-ui (toast "Correct! Please proceed to the next problem." :short)))))))
 
 ;; (on-ui (run-solution (*a)))
 
@@ -222,8 +222,9 @@ Please submit a bug report.")))))
 (defactivity org.bytopia.foreclojure.ProblemActivity
   :key :problem
   :features [:indeterminate-progress]
-  :on-create
-  (fn [this bundle]
+
+  (onCreate [this bundle]
+    (.superOnCreate this bundle)
     (neko.debug/keep-screen-on this)
     (let [;; this (*a)
           ]
@@ -244,24 +245,24 @@ Please submit a bug report.")))))
           (check-solution-on-server this solution))))
     )
 
-  :on-stop
-  (fn [this]
+  (onStop [this]
+    (.superOnStop this)
     (safe-for-ui
      (let [code (str (.getText ^EditText (find-view this ::codebox)))]
        (when-not (= code "")
          (save-solution this code false)))))
 
-  :on-create-options-menu
-  (fn [this menu]
+  (onCreateOptionsMenu [this menu]
+    (.superOnCreateOptionsMenu this menu)
     (safe-for-ui
      (menu/make-menu
       menu [[:item {:title "Run"
                     :icon android.R$drawable/ic_menu_send
                     :show-as-action [:always :with-text]
-                    :on-click (fn [_] (safe-for-ui (run-solution this)))}]])))
+                    :on-click (fn [_] (safe-for-ui (run-solution this)))}]])
+     true))
 
-  :on-options-item-selected
-  (fn [this item]
+  (onOptionsItemSelected [this item]
     (safe-for-ui
      (if (= (.getItemId item) android.R$id/home)
        (.finish this)

@@ -10,11 +10,8 @@ import android.view.animation.Animation;
 import android.view.animation.AnimationUtils;
 import android.widget.ImageView;
 import android.widget.TextView;
-import android.util.Log;
 
-import clojure.lang.Symbol;
-import clojure.lang.Var;
-import clojure.lang.RT;
+import neko.App;
 
 import android.graphics.Canvas;
 import android.graphics.Color;
@@ -38,7 +35,12 @@ public class SplashActivity extends Activity {
         if (firstLaunch) {
             setupSplash();
             if (!inProgress)
-                loadClojure();
+            App.loadAsynchronously("org.bytopia.foreclojure.LoginActivity",
+                                   new Runnable() {
+                                       @Override
+                                       public void run() {
+                                           proceed();
+                                       }});
             inProgress = true;
         } else {
             proceed();
@@ -76,25 +78,9 @@ public class SplashActivity extends Activity {
             }
             startActivity(new Intent(this, activity));
             inProgress = false;
+            firstLaunch = false;
             finish();
         } catch (Exception ex) { throw (RuntimeException)ex; }
-    }
-
-    public void loadClojure() {
-        new Thread(new Runnable(){
-                @Override
-                public void run() {
-                    Symbol CLOJURE_MAIN = Symbol.intern("neko.init");
-                    Var REQUIRE = RT.var("clojure.core", "require");
-                    REQUIRE.invoke(CLOJURE_MAIN);
-
-                    Var INIT = RT.var("neko.init", "init");
-                    INIT.invoke(SplashActivity.this.getApplication());
-
-                    firstLaunch = true;
-                    proceed();
-                }
-            }).start();
     }
 
     // Code by Chris Blunt from StackOverflow
