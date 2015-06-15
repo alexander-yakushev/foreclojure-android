@@ -1,29 +1,25 @@
 (ns org.bytopia.foreclojure.user
   (:require clojure.set
-            [neko.activity :refer [defactivity set-content-view!]]
-            neko.data
-            neko.data.shared-prefs
+            [neko.activity :refer [defactivity set-content-view! get-state]]
+            [neko.data.shared-prefs :as sp]
             [neko.debug :refer [*a]]
             [neko.find-view :refer [find-view find-views]]
             [neko.notify :refer [toast]]
             [neko.threading :refer [on-ui]]
-            neko.ui.adapters
             [neko.ui :as ui]
-            [neko.ui.mapping :refer [defelement]]
-            [neko.ui.menu :as menu]
+            neko.ui.adapters
+            [neko.intent :refer [intent]]
             neko.resource
-            [neko.ui.traits :as traits]
             [org.bytopia.foreclojure
              [db :as db]
              [api :as api]
              [utils :refer [long-running-job]]])
   (:import [android.app ProgressDialog Activity]
-           android.content.Intent
            android.content.res.Configuration
            android.text.Html
            android.text.InputType
-           android.view.Gravity
            android.view.View
+           android.view.WindowManager$LayoutParams
            android.widget.EditText
            javax.crypto.Cipher
            javax.crypto.SecretKey
@@ -46,23 +42,19 @@
                  (.init Cipher/DECRYPT_MODE secret-key))]
     (String. (.doFinal cipher password-bytes))))
 
-(defn set-user-db [a username password]
-  (db/update-user a username (encrypt-pwd password)))
+(defn set-user-db [username password]
+  (db/update-user username (encrypt-pwd password)))
 
-(defn lookup-user [a username]
-  (update-in (db/get-user a username) [:password] decrypt-pwd))
+(defn lookup-user [username]
+  (update-in (db/get-user username) [:password] decrypt-pwd))
+
+(sp/defpreferences prefs "4clojure")
 
 (defn set-last-user [a username]
-  (-> (neko.data.shared-prefs/get-shared-preferences a "4clojure" :private)
-      .edit
-      (neko.data.shared-prefs/put :last-user username)
-      .commit))
+  (swap! prefs assoc :last-user username))
 
 (defn clear-last-user [a]
-  (-> (neko.data.shared-prefs/get-shared-preferences a "4clojure" :private)
-      .edit
-      (.remove "last-user")
-      .commit))
+  (swap! prefs dissoc :last-user))
 
 (defn login-via-input [a]
   (let [[user-et pwd-et] (find-views a ::user-et ::pwd-et)
@@ -74,15 +66,14 @@
       (try
         (if-let [success? (api/login username password true)]
           (do (set-last-user a username)
-              (set-user-db a username password)
-              (.startActivity
-               a (Intent. a (resolve 'org.bytopia.foreclojure.ProblemGridActivity)))
+              (set-user-db username password)
+              (.startActivity a (intent a '.ProblemGridActivity {}))
               (.finish a))
           (on-ui a (toast "Could not sign in. Please check the correctness of your credentials." :short)))
         (finally (on-ui (.dismiss progress)))))))
 
-(defn login-via-saved [a username force?]
-  (let [pwd (:password (lookup-user a username))]
+(defn login-via-saved [username force?]
+  (let [pwd (:password (lookup-user username))]
     (api/login username pwd force?)))
 
 (defn register [^Activity a]
@@ -97,9 +88,8 @@
         (let [error (apply api/register creds)]
           (if-not error
             (do (set-last-user a username)
-                (set-user-db a username pwd)
-                (.startActivity
-                 a (Intent. a (resolve 'org.bytopia.foreclojure.ProblemGridActivity)))
+                (set-user-db username pwd)
+                (.startActivity a (intent a '.ProblemGridActivity {}))
                 (.finish a))
             (on-ui a (toast error))))
         (catch Exception ex (on-ui (toast (str "Exception raised: " ex))))
@@ -107,18 +97,19 @@
 
 (defn refresh-ui [a]
   (let [signup-active? (:signup-active? @(.state a))
-        [signin signup ll] (find-views a ::signin-but ::signup-but
-                                       ::email-and-pwdx2)]
+        [signin signup signup-layout] (find-views a ::signin-but ::signup-but
+                                                  ::email-and-pwdx2)]
     (ui/config signin :text (if signup-active?
                               "Wait, I got it" "Sign in"))
     (ui/config signup :text (if signup-active?
                               "Register" "No account?"))
-    (ui/config ll :visibility (if signup-active?
-                                View/VISIBLE View/GONE))))
+    (ui/config signup-layout :visibility (if signup-active?
+                                           :visible :gone))))
 
 (defn login-form [where]
   (let [basis {:layout-width 0, :layout-weight 1}
-        basis-edit (assoc basis :ime-options android.view.inputmethod.EditorInfo/IME_FLAG_NO_EXTRACT_UI)]
+        basis-edit (assoc basis :ime-options android.view.inputmethod.EditorInfo/IME_FLAG_NO_EXTRACT_UI
+                          :gravity :center-horizontal)]
     [:linear-layout {where ::gus-logo
                      :orientation :vertical
                      :layout-width :fill
@@ -128,31 +119,26 @@
                       :layout-margin [10 :dp]}
       [:edit-text (assoc basis-edit
                     :id ::user-et
-                    :gravity Gravity/CENTER_HORIZONTAL
                     :input-type (bit-or InputType/TYPE_CLASS_TEXT
                                         InputType/TYPE_TEXT_VARIATION_VISIBLE_PASSWORD)
                     :hint "username")]
       [:edit-text (assoc basis-edit
                     :id ::pwd-et
                     :layout-margin-left [10 :dp]
-                    :gravity Gravity/CENTER_HORIZONTAL
                     :input-type (bit-or InputType/TYPE_CLASS_TEXT
                                         InputType/TYPE_TEXT_VARIATION_PASSWORD)
                     :hint "password")]]
      [:linear-layout {:id ::email-and-pwdx2
-                      ;; :layout-below ::user-and-pwd
                       :layout-width :fill
                       :layout-margin [10 :dp]}
       [:edit-text (assoc basis-edit
                     :id ::email-et
-                    :gravity Gravity/CENTER_HORIZONTAL
                     :input-type (bit-or InputType/TYPE_CLASS_TEXT
                                         InputType/TYPE_TEXT_VARIATION_EMAIL_ADDRESS)
                     :hint "email")]
       [:edit-text (assoc basis-edit
                     :id ::pwdx2-et
                     :layout-margin-left [10 :dp]
-                    :gravity android.view.Gravity/CENTER_HORIZONTAL
                     :input-type (bit-or InputType/TYPE_CLASS_TEXT
                                         InputType/TYPE_TEXT_VARIATION_PASSWORD)
                     :hint "password x2")]]
@@ -164,7 +150,7 @@
                  :id ::signin-but
                  :on-click (fn [w]
                              (let [a (.getContext w)
-                                   state (.state a)]
+                                   state (get-state a)]
                                (if (:signup-active? @state)
                                  (do (swap! state assoc :signup-active? false)
                                      (refresh-ui a))
@@ -174,7 +160,7 @@
                  :layout-margin-left [30 :dp]
                  :on-click (fn [^View w]
                              (let [a (.getContext w)
-                                   state (.state a)]
+                                   state (get-state a)]
                                (if (not (:signup-active? @state))
                                  (do (swap! state assoc :signup-active? true)
                                      (refresh-ui a))
@@ -196,7 +182,7 @@
                   :text "Welcome to 4Clojure*!"
                   :text-size [22 :sp]}]
      [:image-view {:image R$drawable/foreclj_logo
-                   :layout-height (traits/to-dimension (*a) (if landscape? [250 :dp] [320 :dp]))}]
+                   :layout-height (if landscape? [250 :dp] [320 :dp])}]
      [:text-view {:text (Html/fromHtml "*This is an unofficial client for <a href=\"http://4clojure.com\">4clojure.com</a>")
                   :movement-method (SafeLinkMethod/getInstance)
                   :text-size [14 :sp]
@@ -213,10 +199,9 @@
   (onCreate [this bundle]
     (.superOnCreate this bundle)
     (neko.debug/keep-screen-on this)
-    (.. this (getWindow) (setSoftInputMode android.view.WindowManager$LayoutParams/SOFT_INPUT_STATE_HIDDEN))
-    (let [this (*a)
-          landscape? (= (.. this (getResources) (getConfiguration) orientation)
-                        Configuration/ORIENTATION_LANDSCAPE)]
+    (.. this (getWindow) (setSoftInputMode WindowManager$LayoutParams/SOFT_INPUT_STATE_HIDDEN))
+    (let [;; this (*a)
+          landscape? (= (ui/get-screen-orientation) :landscape)]
       (on-ui
         (set-content-view! this (activity-ui landscape?))
         (refresh-ui this)))

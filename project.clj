@@ -45,7 +45,7 @@
               {:target-path "target/pre-release"
                :android {:use-debug-keystore true}}]}
 
-  :android {:dex-opts ["-JXmx4096M"]
+  :android {:dex-opts ["-JXmx4096M" "--incremental"]
             ;; :force-dex-optimize true
             :build-config {"ENC_ALGORITHM" "Blowfish"
                            "ENC_KEY" #=(get-enc-key)}

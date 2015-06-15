@@ -32,19 +32,15 @@
                            :code "text"}}})))
 
 (def ^:private get-db-helper
-  "Function that given an application context returns a database helper."
-  (memoize (fn [^Context context]
-             (db/create-helper (.getApplicationContext context) db-schema))))
+  "Singleton of the SQLite helper."
+  (memoize (fn [] (db/create-helper db-schema))))
 
 (defn get-db
-  "Returns a writeable database given an application context. If the argument is
-  already a db, just returns it."
-  [context-or-db]
-  (if (instance? Context context-or-db)
-    (db/get-database (get-db-helper context-or-db) :write)
-    context-or-db))
+  "Returns a new writeable database each time it is called."
+  []
+  (db/get-database (get-db-helper) :write))
 
-;; (def db (get-db (*a :main)))
+;; (def db (get-db))
 
 (defn db-empty?
   "Returns true if database hasn't been yet populated with any problems."
@@ -73,9 +69,12 @@
 
 ;; (problem-json->db {"id" 13 "title" "Foo" "tests" ["(= __ true)" "(= __ false)"]})
 
-(defn insert-problem [context-or-db json-map]
-  (log/d "insert-problem()" "problem-id" (get (problem-json->db json-map) "_id"))
-  (db/insert (get-db context-or-db) :problems (problem-json->db json-map)))
+(defn insert-problem
+  ([json-map]
+   (insert-problem (get-db) json-map))
+  ([db json-map]
+   (log/d "insert-problem()" "problem-id" (get (problem-json->db json-map) "_id"))
+   (db/insert db :problems (problem-json->db json-map))))
 
 (defn populate-database
   "Inserts problems into database from the JSON file that is stored in assets."
@@ -102,62 +101,55 @@
 (defn initialize
   "Spins up the database, populates if necessary, returns the last problem ID."
   [context]
-  (let [db (get-db context)]
+  (let [db (get-db)]
     (when (db-empty? db)
       (populate-database context db))
     (get-last-problem-id db)))
 
 ;; (time (initialize (*a :main)))
 
-(defn get-problem [context i]
-  (-> (get-db context)
-      (db/query-seq :problems {:_id i})
+(defn get-problem [i]
+  (-> (db/query-seq (get-db) :problems {:_id i})
       first
       (update-in [:tests] read-string)
       (update-in [:restricted] (comp set read-string))))
 
 ;; (get-problem (*a :main) 1)
 
-(defn update-user [context-or-db username password-bytes]
-  (let [db (get-db context-or-db)
+(defn update-user [username password-bytes]
+  (let [db (get-db)
         user-id (db/query-scalar db :_id :users {:username username})]
     (if user-id
       (db/update db :users {:password password-bytes} {:_id user-id})
       (db/insert db :users {:username username
                             :password password-bytes}))))
 
-(defn get-user [context-or-db username]
-  (first (db/query-seq (get-db context-or-db) :users {:username username})))
+(defn get-user [username]
+  (first (db/query-seq (get-db) :users {:username username})))
 
-;; (get-user (*a :main) "@debug")
+;; (get-user "@debug")
 
 (defn get-solution
-  [context-or-db username problem-id]
-  (-> (get-db context-or-db)
-      (db/query-seq [:solutions/_id :solutions/code
-                     :solutions/is_solved :solutions/is_synced]
-                    [:solutions :users]
-                    {:users/_id :solutions/user_id
-                     :solutions/problem_id problem-id
-                     :users/username username})
-      first))
+  ([username problem-id]
+   (get-solution (get-db) username problem-id))
+  ([db username problem-id]
+   (-> (db/query-seq db [:solutions/_id :solutions/code
+                         :solutions/is_solved :solutions/is_synced]
+                     [:solutions :users]
+                     {:users/_id :solutions/user_id
+                      :solutions/problem_id problem-id
+                      :users/username username})
+       first)))
 
-;; (get-solution (*a :main) "testclient" 12)
-
-(defn insert-solution [context username solution-map]
-  (let [db (get-db context)
-        user-id (db/query-scalar db :_id :users {:username username})]
-    (db/insert db :solutions (assoc solution-map :user_id user-id))))
-
-;; (insert-solution (*a :main) "@debug" {:problem_id 3, :is_solved true})
+;; (get-solution "testclient" 12)
 
 (defn update-solution
   "Updates user's solution to the problem. If the new solution is
   correct (:is_solved), force overwrite, otherwise only write the solution if
   the user haven't presented the correct solution to the current problem yet."
-  [context username problem-id new-solution]
+  [username problem-id new-solution]
   (log/d "Update solution:" username problem-id new-solution)
-  (let [db (get-db context)
+  (let [db (get-db)
         user-id (db/query-scalar db :_id :users {:username username})
         old-solution (get-solution db username problem-id)]
     (if old-solution
@@ -166,15 +158,15 @@
         (db/update db :solutions new-solution
                    {:_id (:solutions/_id old-solution)}))
       (db/insert db :solutions (assoc new-solution
-                                 :user_id user-id, :problem_id problem-id)))))
+                                      :user_id user-id, :problem_id problem-id)))))
 
-;; (update-solution (*a :main) "@debug" 1 {:code "true", :is_solved true})
+;; (update-solution "@debug" 1 {:code "true", :is_solved true})
 
 (defn get-problems-cursor
   "Queries database for the problems to be displayed in the grid. Returns a
   Cursor object."
-  [context username show-solved?]
-  (let [db (get-db context)
+  [username show-solved?]
+  (let [db (get-db)
         user-id (db/query-scalar db :_id :users {:username username})]
     (db/query
      db
@@ -183,17 +175,17 @@
           "AND solutions.user_id = " user-id)
      (when-not show-solved? {:solutions/is_solved [:or false nil]}))))
 
-;; (get-problems-cursor (*a :main) "testclient" true)
+;; (get-problems-cursor "testclient" true)
 
 (defn get-solved-ids-for-user
   "Returns a set of solved IDs by the given user."
-  [context username]
-  (let [db (get-db context)
+  [username]
+  (let [db (get-db)
         user-id (db/query-scalar db :_id :users {:username username})]
     (->> (db/query-seq db [:problem_id] :solutions {:user_id user-id, :is_solved true})
          (map :problem_id)
          set)))
 
-;; (get-solved-ids-for-user (*a :main) "@debug")
+;; (get-solved-ids-for-user "@debug")
 
-;; (db/query-seq (get-db (*a :main)) :solutions {:user_id 3})
+;; (db/query-seq (get-db) :solutions {:user_id 3})

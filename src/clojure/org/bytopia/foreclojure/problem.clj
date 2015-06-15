@@ -1,15 +1,14 @@
 (ns org.bytopia.foreclojure.problem
   (:require [clojure.string :as str]
             [neko.action-bar :as action-bar]
-            [neko.activity :refer [defactivity set-content-view!]]
+            [neko.activity :refer [defactivity set-content-view! get-state]]
             [neko.data :refer [like-map]]
-            [neko.debug :refer [*a safe-for-ui]]
+            [neko.debug :refer [*a]]
             [neko.find-view :refer [find-view find-views]]
             [neko.notify :refer [toast]]
             neko.resource
             [neko.threading :refer [on-ui]]
             [neko.ui :as ui]
-            [neko.ui.mapping :refer [defelement]]
             [neko.ui.menu :as menu]
             [neko.ui.traits :as traits]
             [org.bytopia.foreclojure
@@ -21,6 +20,7 @@
            android.graphics.Typeface
            [android.text Html InputType Spannable]
            android.view.View
+           android.view.inputmethod.EditorInfo
            [android.widget EditText ListView]
            [org.bytopia.foreclojure SafeLinkMethod CodeboxTextWatcher]))
 
@@ -38,8 +38,7 @@
                   [imgv errv] (find-views test-view ::status-iv ::error-tv)]
               (ui/config imgv
                          :visibility (if (= imgv-state :none)
-                                       android.view.View/INVISIBLE
-                                       android.view.View/VISIBLE)
+                                       :invisible :visible)
                          :image (if (= imgv-state :good)
                                   R$drawable/check_icon
                                   android.R$drawable/ic_delete))
@@ -48,11 +47,10 @@
           status-list)))
 
 (defn try-solution [a code]
-  (let [{:keys [tests restricted]} (:problem @(.state a))
+  (let [{:keys [tests restricted]} (:problem @(get-state a))
         results (logic/check-suggested-solution code tests restricted)]
-    (on-ui (->> (range (count tests))
-                (mapv (fn [i] (let [err-msg (get results i)]
-                               [(if err-msg :bad :good) err-msg])))
+    (on-ui (->> results
+                (mapv (fn [err-msg] [(if err-msg :bad :good) err-msg]))
                 (update-test-status a)))
     (empty? results)))
 
@@ -61,7 +59,7 @@
 (defn save-solution
   [a code correct?]
   (let [{:keys [problem-id user]} (like-map (.getIntent a))]
-    (db/update-solution a user problem-id {:code code, :is_solved correct?})))
+    (db/update-solution user problem-id {:code code, :is_solved correct?})))
 
 (defn run-solution [a]
   (let [{:keys [problem-id user]} (like-map (.getIntent a))
@@ -73,8 +71,8 @@
          (when (and (api/network-connected?) (api/logged-in?))
            (let [success? (api/submit-solution problem-id code)]
              (if success?
-               (db/update-solution a user problem-id {:is_solved true
-                                                      :is_synced true})
+               (db/update-solution user problem-id {:is_solved true
+                                                    :is_synced true})
                (throw (RuntimeException. "Server rejected our solution!
 Please submit a bug report.")))))
          (on-ui (toast "Correct! Please proceed to the next problem." :short)))))))
@@ -84,7 +82,7 @@ Please submit a bug report.")))))
 (defn refresh-ui [a code solved?]
   (let [[codebox solved-iv] (find-views a ::codebox ::solved-iv)]
     (ui/config codebox :text code)
-    (ui/config solved-iv :visibility (if solved? View/VISIBLE View/INVISIBLE))))
+    (ui/config solved-iv :visibility (if solved? :visible :invisible))))
 
 ;; (on-ui (refresh-ui (*a) "foobar" true))
 
@@ -96,8 +94,8 @@ Please submit a bug report.")))))
                   (nil? (:solutions/code solution)))
          ;; Apparently there should be our solution on server, let's grab it.
          (when-let [code (api/fetch-user-solution problem-id)]
-           (db/update-solution a user problem-id {:code code, :is_solved true
-                                                  :is_synced true})
+           (db/update-solution user problem-id {:code code, :is_solved true
+                                                :is_synced true})
            (on-ui (refresh-ui a code true))))))))
 
 ;; (on-ui (check-solution-on-server (*a) nil))
@@ -124,23 +122,22 @@ Please submit a bug report.")))))
                  :scale-type :fit-xy
                  :layout-width (neko.ui.traits/to-dimension (*a) [20 :dp])
                  :layout-height (neko.ui.traits/to-dimension (*a) [20 :dp])
-                 :visibility android.view.View/INVISIBLE
-                 :layout-gravity android.view.Gravity/CENTER}]
+                 :visibility :invisible
+                 :layout-gravity :center}]
    [:text-view {:text (.replace (str test) "\\r\\n" "\n")
                 :layout-margin-left [10 :dp]
                 :layout-height :wrap
                 :layout-width 0
                 :layout-weight 1
                 :typeface android.graphics.Typeface/MONOSPACE
-                :layout-gravity android.view.Gravity/CENTER}]
+                :layout-gravity :center}]
    [:text-view {:id ::error-tv
                 :text-color (android.graphics.Color/rgb 200 0 0)
                 :layout-width 0
                 :layout-weight 1
                 :layout-margin-left [15 :dp]
-                :layout-gravity android.view.Gravity/CENTER
-                :on-click (fn [v] (clear-result-flags
-                                  (.getContext ^View v)))}]])
+                :layout-gravity :center
+                :on-click (fn [v] (clear-result-flags (.getContext ^View v)))}]])
 
 (defn make-tests-list [tests under]
   (list* :linear-layout {:id ::tests-lv
@@ -167,9 +164,6 @@ Please submit a bug report.")))))
       (if (= (.charAt spannable i) \newline)
         (recur (dec i))
         (.delete spannable (inc i) (.length spannable))))))
-
-(defelement :scroll-view
-  :classname android.widget.ScrollView)
 
 (defn problem-ui [a {:keys [_id title difficulty description restricted tests]}]
   [:scroll-view {}
@@ -203,16 +197,15 @@ Please submit a bug report.")))))
       [:text-view {:id ::restricted-tv
                    :layout-below ::desc-tv
                    :text (->> restricted
-                              (interpose ", ")
-                              str/join
+                              (str/join ", ")
                               (str "Special restrictions: "))}])
     (make-tests-list tests (if (seq restricted)
                              ::restricted-tv  ::desc-tv))
     [:edit-text {:id ::codebox
                  :layout-below ::tests-lv
-                 :input-type (bit-or InputType/TYPE_TEXT_FLAG_NO_SUGGESTIONS
-                                     InputType/TYPE_TEXT_FLAG_MULTI_LINE)
-                 :ime-options android.view.inputmethod.EditorInfo/IME_FLAG_NO_EXTRACT_UI
+                 ;; :input-type (bit-or InputType/TYPE_TEXT_FLAG_NO_SUGGESTIONS
+                 ;;                     InputType/TYPE_TEXT_FLAG_MULTI_LINE)
+                 :ime-options EditorInfo/IME_FLAG_NO_EXTRACT_UI
                  :single-line false
                  :layout-margin-top [20 :dp]
                  :layout-width :fill
@@ -230,11 +223,11 @@ Please submit a bug report.")))))
           ]
       (on-ui
         (let [{:keys [problem-id user]} (like-map (.getIntent this))
-              problem (db/get-problem this problem-id)
-              solution (db/get-solution this user problem-id)
+              problem (db/get-problem problem-id)
+              solution (db/get-solution user problem-id)
               code (or (:solutions/code solution) "")
               solved? (and solution (:solutions/is_solved solution))]
-          (swap! (.state this) assoc :problem problem, :solution solution)
+          (swap! (get-state this) assoc :problem problem, :solution solution)
           (set-content-view! this (problem-ui this problem))
           (.addTextChangedListener ^EditText (find-view this ::codebox)
                                    (CodeboxTextWatcher. core-forms))
@@ -247,23 +240,21 @@ Please submit a bug report.")))))
 
   (onStop [this]
     (.superOnStop this)
-    (safe-for-ui
-     (let [code (str (.getText ^EditText (find-view this ::codebox)))]
-       (when-not (= code "")
-         (save-solution this code false)))))
+    (let [code (str (.getText ^EditText (find-view this ::codebox)))]
+      (when-not (= code "")
+        (save-solution this code false))))
 
   (onCreateOptionsMenu [this menu]
     (.superOnCreateOptionsMenu this menu)
-    (safe-for-ui
-     (menu/make-menu
-      menu [[:item {:title "Run"
-                    :icon android.R$drawable/ic_menu_send
-                    :show-as-action [:always :with-text]
-                    :on-click (fn [_] (safe-for-ui (run-solution this)))}]])
-     true))
+    (menu/make-menu
+     menu [[:item {:title "Run"
+                   :icon android.R$drawable/ic_menu_send
+                   :show-as-action [:always :with-text]
+                   :on-click (fn [_] (run-solution this))}]])
+    true)
 
   (onOptionsItemSelected [this item]
-    (safe-for-ui
-     (if (= (.getItemId item) android.R$id/home)
-       (.finish this)
-       (.superOnOptionsItemSelected this item)))))
+    (if (= (.getItemId item) android.R$id/home)
+      (.finish this)
+      (.superOnOptionsItemSelected this item))
+    true))
