@@ -75,7 +75,7 @@
            (when (pos? (+ (count new-ids) (count to-download) (count to-upload)))
              (on-ui (toast (format "Downloaded %d new problem(s).\nDiscovered %d server solution(s).\nUploaded %d local solution(s)."
                                    (count new-ids) (count to-download) (count to-upload))))))
-         (on-ui "Can't login to 4clojure.com. Working in offline mode.")))
+         (on-ui (toast "Can't login to 4clojure.com. Working in offline mode."))))
      (on-ui (refresh-ui a)))))
 
 ;; (reload-from-server (*a))
