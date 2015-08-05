@@ -44,12 +44,12 @@
 
 (defn reload-from-server [a]
   (long-running-job
-   (when (api/network-connected?)
+   (if (api/network-connected?)
      (let [user (:user (like-map (.getIntent a)))]
        ;; Try relogin
        (when (not (api/logged-in?))
          (user/login-via-saved user true))
-       (when (api/logged-in?)
+       (if (api/logged-in?)
          (let [last-id (db/initialize a)
                {:keys [solved-ids new-ids]} (api/fetch-solved-problem-ids last-id)
                locally-solved (db/get-solved-ids-for-user user)
@@ -69,14 +69,14 @@
                (on-ui (toast (str "(???) Server rejected our solution to problem " problem-id)))))
            ;; Download new problems and insert them into database
            (doseq [problem-id new-ids]
-             (when-let [json (assoc (api/fetch-problem problem-id)
-                               "id" problem-id)]
-               (db/insert-problem json)))
+             (when-let [json (api/fetch-problem problem-id)]
+               (db/insert-problem (assoc json "id" problem-id))))
            (when (pos? (+ (count new-ids) (count to-download) (count to-upload)))
              (on-ui (toast (format "Downloaded %d new problem(s).\nDiscovered %d server solution(s).\nUploaded %d local solution(s)."
                                    (count new-ids) (count to-download) (count to-upload))))))
          (on-ui (toast "Can't login to 4clojure.com. Working in offline mode."))))
-     (on-ui (refresh-ui a)))))
+     (on-ui (toast "Network is not available.")))
+   (on-ui (refresh-ui a))))
 
 ;; (reload-from-server (*a))
 
