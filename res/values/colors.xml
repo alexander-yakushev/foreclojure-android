@@ -1,0 +1,10 @@
+<resources>
+
+    <item name="blue" type="color">#3F51B5</item>
+    <item name="dim_blue" type="color">#303F9F</item>
+    <item name="deep_blue" type="color">#1A237E</item>
+    <item name="weak_blue" type="color">#C5CAE9</item>
+    <item name="white" type="color">#FFFFFF</item>
+    <item name="green" type="color">#3AAD46</item>
+
+</resources>
