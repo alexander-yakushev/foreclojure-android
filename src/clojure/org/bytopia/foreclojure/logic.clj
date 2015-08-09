@@ -1,7 +1,8 @@
 (ns org.bytopia.foreclojure.logic
   (:require [clojure.string :as str]
             clojure.walk)
-  (:import [java.util.concurrent FutureTask TimeUnit TimeoutException]))
+  (:import [java.util.concurrent FutureTask TimeUnit TimeoutException]
+           java.io.StringWriter))
 
 (def ^:const timeout 3000)
 
@@ -17,7 +18,7 @@
       (catch TimeoutException e
         (.cancel task true)
         (.interrupt thread)
-        (throw (TimeoutException. "Execution timed out.")))
+        (throw e))
       (catch Exception e
         (.cancel task true)
         (.interrupt thread)
@@ -65,8 +66,27 @@
              (assoc err-map i
                     (str "Form is not allowed: "
                          found-restricted))))
-         (catch Throwable e (assoc err-map i (str e))))))
+         (catch Throwable e (assoc err-map i
+                                   (if (instance? TimeoutException e)
+                                     "Execution timed out."
+                                     (.getMessage e)))))))
    {} (vec tests)))
+
+(defn run-code-in-repl
+  "Runs user code and returns the result and the text printed to *out*."
+  [^String code]
+  (let [writer (StringWriter.)]
+    (try
+      (let [[code-form] (read-code code)]
+        (let [result (thunk-timeout (fn [] (binding [*out* writer]
+                                            (eval code-form))))]
+          {:result result, :out (str writer)}))
+      (catch Throwable e
+        {:out (str writer (if (instance? TimeoutException e)
+                            "java.util.concurrent.TimeoutException: Execution timed out."
+                            (.getMessage e)))}))))
+
+;; (run-code-in-repl "(do (println \"foo\") (/ 1 0))")
 
 ;; (check-suggested-solution "[1 (/ 1 0) 4]" (:problem-tests @state) #{})
 ;; (check-suggested-solution "6" ["(= (- 10 (* 2 3)) __)"] #{})
