@@ -18,7 +18,7 @@
              [api :as api]
              [db :as db]
              [logic :as logic]
-             [utils :refer [long-running-job snackbar]]])
+             [utils :refer [long-running-job snackbar ellipsize]]])
   (:import android.content.res.Configuration
            android.graphics.Typeface
            android.graphics.Color
@@ -27,7 +27,7 @@
            android.view.inputmethod.EditorInfo
            [android.widget EditText ListView TextView]
            [org.bytopia.foreclojure SafeLinkMethod CodeboxTextWatcher]
-           android.support.v7.app.ActionBarActivity
+           android.support.v7.app.AppCompatActivity
            neko.App))
 
 (neko.resource/import-all)
@@ -39,6 +39,12 @@
   (format "%s %s! Proceed to the next problem."
           (rand-nth (get-string-array R$array/nice_adjectives))
           (rand-nth (get-string-array R$array/work_synonyms))))
+
+(defmacro lrj [& body]
+  `(long-running-job
+    (ui/config (find-view ~'a ::eval-progress) :visibility :visible)
+    (ui/config (find-view ~'a ::eval-progress) :visibility :gone)
+    ~@body))
 
 ;;; Interaction
 
@@ -56,7 +62,7 @@
   "Takes a list of pairs, one pair per test, where first value is
   either :good, :bad or :none; and second value is error message."
   [a status-list]
-  (let [^ListView tests-lv (find-view a ::tests-lv)]
+  (let [tests-lv (find-view a ::tests-lv)]
     (mapv (fn [test-i [imgv-state err-msg]]
             (let [test-view (find-view tests-lv test-i)
                   [imgv errv] (find-views test-view ::status-iv ::error-tv)]
@@ -91,31 +97,31 @@
   [a]
   (let [{:keys [problem-id user]} (like-map (.getIntent a))
         code (str (.getText ^EditText (find-view a ::codebox)))]
-    (long-running-job
+    (lrj
      (let [correct? (try-solution a code)]
        (save-solution a code correct?)
        (when correct?
          (when (and (api/network-connected?) (api/logged-in?))
            (let [success? (api/submit-solution problem-id code)]
              (if success?
-               (db/update-solution user problem-id {:is_solved true
-                                                    :is_synced true})
-               (on-ui (toast "Server rejected our solution!
-Please submit a bug report.")))))
-         (when-let [focused (.getCurrentFocus a)]
-           (.hideSoftInputFromWindow (get-service :input-method)
-                                     (.getWindowToken focused) 0)
-           (Thread/sleep 100))
-         (let [next-id (db/get-next-unsolved-id user problem-id)]
-           (snackbar a (congratulations-message)
-                     20000 (when next-id "Next problem")
-                     (fn [v]
-                       (.startActivity
-                        a (intent a '.ProblemActivity
-                                  {:problem-id next-id
-                                   :user user}))
-                       (.finish a)
-                       (.overridePendingTransition a R$anim/slide_in_right R$anim/slide_out_left)))))))))
+               (do
+                 (db/update-solution user problem-id {:is_solved true
+                                                      :is_synced true})
+                 (when-let [focused (.getCurrentFocus a)]
+                   (.hideSoftInputFromWindow (get-service :input-method)
+                                             (.getWindowToken focused) 0)
+                   (Thread/sleep 100))
+                 (let [next-id (db/get-next-unsolved-id user problem-id)]
+                   (snackbar a (congratulations-message)
+                             20000 (when next-id "Next problem")
+                             (fn [v]
+                               (.startActivity
+                                a (intent a '.ProblemActivity
+                                          {:problem-id next-id
+                                           :user user}))
+                               (.finish a)
+                               (.overridePendingTransition a R$anim/slide_in_right R$anim/slide_out_left)))))
+               (on-ui (toast "Server rejected our solution!\nPlease submit a bug report."))))))))))
 
 ;; (run-solution (*a))
 
@@ -124,12 +130,12 @@ Please submit a bug report.")))))
   [a]
   (let [code (str (.getText ^EditText (find-view a ::codebox)))
         ^TextView repl-out (find-view a ::repl-out)]
-    (long-running-job
+    (lrj
      (let [result (logic/run-code-in-repl code)
            str-to-append (str "\n"
                               (:out result)
                               (when (contains? result :result)
-                                (str "=> " (or (:result result) "nil"))))]
+                                (str "=> " (ellipsize (or (:result result) "nil") 200 ))))]
        (on-ui (.append repl-out str-to-append))
        (save-solution a code false)))))
 
@@ -145,7 +151,7 @@ Please submit a bug report.")))))
 ;; (on-ui (refresh-ui (*a) "foobar" true))
 
 (defn check-solution-on-server [a solution]
-  (long-running-job
+  (lrj
    (when (and (api/network-connected?) (api/logged-in?))
      (let [{:keys [problem-id user]} (like-map (.getIntent a))]
        (when (and (:solutions/is_solved solution)
@@ -179,8 +185,8 @@ Please submit a bug report.")))))
    [:image-view {:id ::status-iv
                  :image R$drawable/ic_checkmark
                  :scale-type :fit-xy
-                 :layout-width (neko.ui.traits/to-dimension (*a) [18 :dp])
-                 :layout-height (neko.ui.traits/to-dimension (*a) [18 :dp])
+                 :layout-width [18 :dp]
+                 :layout-height [18 :dp]
                  :visibility :invisible
                  :layout-gravity :center}]
    [:text-view {:text (.replace (str test) "\\r\\n" "\n")
@@ -196,7 +202,7 @@ Please submit a bug report.")))))
                 :layout-weight 1
                 :layout-margin-left [15 :dp]
                 :layout-gravity :center
-                :on-click (fn [v] (clear-result-flags (.getContext ^View v)))}]])
+                :on-click (fn [^View v] (clear-result-flags (.getContext v)))}]])
 
 (defn make-tests-list [tests under]
   (list* :linear-layout {:id ::tests-lv
@@ -243,6 +249,7 @@ Please submit a bug report.")))))
      [:text-view {:id ::title-tv
                   :text (str _id ". " title)
                   :text-size [24 :sp]
+                  :text-color (Color/rgb 33 33 33)
                   :typeface Typeface/DEFAULT_BOLD}]
      (when (= (.. a (getResources) (getConfiguration) orientation)
               Configuration/ORIENTATION_LANDSCAPE)
@@ -250,6 +257,7 @@ Please submit a bug report.")))))
                     :layout-align-parent-top true
                     :layout-align-parent-right true
                     :text-size [18 :sp]
+                    :text-color (Color/rgb 33 33 33)
                     :padding [5 :dp]}])
      [:image-view {:id ::solved-iv
                    :layout-to-right-of ::title-tv
@@ -261,11 +269,13 @@ Please submit a bug report.")))))
      [:text-view {:id ::desc-tv
                   :layout-below ::title-tv
                   :text (render-html description)
+                  :text-color (Color/rgb 33 33 33)
                   :movement-method (SafeLinkMethod/getInstance)
                   :link-text-color (android.graphics.Color/rgb 0 0 139)}]
      (when (seq restricted)
        [:text-view {:id ::restricted-tv
                     :layout-below ::desc-tv
+                    :text-color (Color/rgb 33 33 33)
                     :text (->> restricted
                                (str/join ", ")
                                (str "Special restrictions: "))}])
@@ -281,16 +291,17 @@ Please submit a bug report.")))))
                  :movement-method (android.text.method.ScrollingMovementMethod.)
                  :min-height (neko.ui.traits/to-dimension (*a) [110 :sp])
                  :typeface Typeface/MONOSPACE
+                 :text-color (Color/rgb 33 33 33)
                  :background-color Color/WHITE
                  :text ";; In REPL mode code is evaluated as-is. Press \"Run\" to see the result of your expression. *out* is redirected to here too. This view is scrollable."}]
     [:relative-layout {}
-     [:progress-bar {:layout-center-in-parent true
-                     :id ::eval-progress
+     [:progress-bar {:id ::eval-progress
+                     :layout-align-parent-right true
+                     :layout-margin-right [10 :dp]
                      :visibility :gone}]
      [:edit-text {:id ::codebox
-                  ;; :layout-below ::tests-lv
-                  ;; :input-type (bit-or InputType/TYPE_TEXT_FLAG_NO_SUGGESTIONS
-                  ;;                     InputType/TYPE_TEXT_FLAG_MULTI_LINE)
+                  :input-type (bit-or InputType/TYPE_TEXT_FLAG_NO_SUGGESTIONS
+                                      InputType/TYPE_TEXT_FLAG_MULTI_LINE)
                   :ime-options EditorInfo/IME_FLAG_NO_EXTRACT_UI
                   :single-line false
                   :layout-margin-top [15 :dp]
@@ -300,7 +311,7 @@ Please submit a bug report.")))))
 
 (defactivity org.bytopia.foreclojure.ProblemActivity
   :key :problem
-  :extends ActionBarActivity
+  :extends AppCompatActivity
 
   (onCreate [this bundle]
     (.superOnCreate this bundle)
@@ -321,9 +332,6 @@ Please submit a bug report.")))))
           (.setDisplayHomeAsUpEnabled (.getSupportActionBar (*a)) true)
           (.setHomeButtonEnabled (.getSupportActionBar (*a)) true)
           (.setTitle (.getSupportActionBar (*a)) (str "Problem " (:_id problem)))
-          ;; (action-bar/setup-action-bar
-          ;;  this {:title (str "Problem " (:_id problem))
-          ;;        :display-options [:show-home :show-title :home-as-up]})
           (check-solution-on-server this solution))))
     )
 
@@ -337,14 +345,14 @@ Please submit a bug report.")))))
     (.superOnCreateOptionsMenu this menu)
     (let [repl-mode (repl-mode? this)]
       (menu/make-menu
-       menu [   [:item {:title (if repl-mode
-                                 "Switch to problem mode"
-                                 "Switch to REPL mode")
-                        :icon (if repl-mode
-                                R$drawable/ic_format_list_bulleted_white
-                                R$drawable/ic_mode_edit_white)
-                        :show-as-action :always
-                        :on-click (fn [_] (toggle-repl-mode this))}]
+       menu [[:item {:title (if repl-mode
+                              "Switch to problem mode"
+                              "Switch to REPL mode")
+                     :icon (if repl-mode
+                             R$drawable/ic_format_list_bulleted_white
+                             R$drawable/ic_mode_edit_white)
+                     :show-as-action :always
+                     :on-click (fn [_] (toggle-repl-mode this))}]
              [:item {:title "Run"
                      :icon R$drawable/ic_directions_run_white
                      :show-as-action [:always :with-text]
@@ -366,5 +374,5 @@ Please submit a bug report.")))))
   (onRestoreInstanceState [this bundle]
     (let [b (like-map bundle)]
       (ui/config (find-view (*a) ::repl-out) :text (:repl-out b))
-      (if (:repl-mode b)
+      (when (:repl-mode b)
         (toggle-repl-mode this)))))

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-  <string-array name="loading_messages_array">
+  <string-array name="loading_messages">
     <item>Putting that cookie down</item>
     <item>Facing Lord Clojaraxxus</item>
     <item>Dusting off stale lambdas</item>
@@ -11,5 +11,29 @@
     <item>Thanking 4clojure.com devs</item>
     <item>Soldering Atreus keyboard</item>
     <item>Testing user patience</item>
+  </string-array>
+  <string-array name="nice_adjectives">
+    <item>Awesome</item>
+    <item>Excellent</item>
+    <item>Perfect</item>
+    <item>Outstanding</item>
+    <item>Glorious</item>
+    <item>Wonderflonious</item>
+    <item>Amazing</item>
+    <item>Spectacular</item>
+    <item>Fantastic</item>
+    <item>Phenomenal</item>
+    <item>Marvelous</item>
+    <item>Magnificent</item>
+  </string-array>
+  <string-array name="work_synonyms">
+    <item>work</item>
+    <item>job</item>
+    <item>execution</item>
+    <item>performance</item>
+    <item>achievement</item>
+    <item>solution</item>
+    <item>effort</item>
+    <item>code</item>
   </string-array>
 </resources>

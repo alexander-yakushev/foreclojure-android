@@ -118,10 +118,7 @@
   (refresh-ui a))
 
 (defn html->short-str [html]
-  (let [s (str (Html/fromHtml html))
-        lng (count s)]
-    (if (> lng 140)
-      (str (subs s 0 140) "...") s)))
+  (utils/ellipsize (str (Html/fromHtml html)) 140))
 
 (def ^LruCache cache
   (memoize (fn [] (LruCache. 50))))
@@ -166,15 +163,18 @@
    (fn []
      [:relative-layout {:layout-height [160 :dp]
                         :id-holder true
-                        :background-color (android.graphics.Color/WHITE)
+                        :background-color Color/WHITE
+                        :elevation [2 :dp]
                         :padding [5 :dp]}
       [:text-view {:id ::title-tv
                    :text-size [20 :sp]
-                   :typeface android.graphics.Typeface/DEFAULT_BOLD}]
+                   :text-color (Color/rgb 33 33 33)
+                   :typeface (android.graphics.Typeface/create "sans-serif-medium" 0)}]
       [:text-view {:id ::desc-tv
-                   :layout-below ::title-tv}]
+                   :layout-below ::title-tv
+                   :text-color (Color/rgb 33 33 33)}]
       [:image-view {:id ::done-iv
-                    :image R$drawable/check_icon
+                    :image R$drawable/ic_checkmark_large
                     :layout-width [50 :dp]
                     :layout-height [50 :dp]
                     :layout-align-parent-bottom true

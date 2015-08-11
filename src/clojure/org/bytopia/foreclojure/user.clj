@@ -114,7 +114,8 @@
                      :orientation :vertical
                      :layout-width :fill
                      :layout-height :fill
-                     :gravity :center}
+                     :gravity :center
+                     :layout-transition (android.animation.LayoutTransition.)}
      [:linear-layout {:layout-width :fill
                       :layout-margin [10 :dp]}
       [:edit-text (assoc basis-edit

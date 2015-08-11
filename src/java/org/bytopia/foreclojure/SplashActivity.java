@@ -51,7 +51,7 @@ public class SplashActivity extends Activity {
         setContentView(R.layout.splashscreen);
 
         TextView loading = (TextView)findViewById(R.id.splash_loading_message);
-        String[] messages = getResources().getStringArray(R.array.loading_messages_array);
+        String[] messages = getResources().getStringArray(R.array.loading_messages);
         int idx = (int)Math.floor(Math.random() * messages.length);
         String msg = messages[idx];
         if (msg == null)

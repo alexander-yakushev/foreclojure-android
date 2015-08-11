@@ -12,7 +12,7 @@
       android:name="neko.App"
       android:icon="@drawable/ic_launcher"
       android:label="{{app-name}}"
-      android:theme="@android:style/Theme.Holo.Light">
+      android:theme="@style/Theme.MainTheme">
     <activity android:name=".SplashActivity"
               android:theme="@android:style/Theme.Translucent.NoTitleBar"
               android:screenOrientation="sensor">
