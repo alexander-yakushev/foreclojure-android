@@ -135,7 +135,7 @@
            str-to-append (str "\n"
                               (:out result)
                               (when (contains? result :result)
-                                (str "=> " (ellipsize (or (:result result) "nil") 200 ))))]
+                                (str "=> " (ellipsize (str (or (:result result) "nil")) 200))))]
        (on-ui (.append repl-out str-to-append))
        (save-solution a code false)))))
 
@@ -368,7 +368,7 @@
     true)
 
   (onSaveInstanceState [this bundle]
-    (.putBoolean bundle "repl-mode" (repl-mode? this))
+    (.putBoolean bundle "repl-mode" (boolean (repl-mode? this)))
     (.putString bundle "repl-out" (str (.getText (find-view this ::repl-out)))))
 
   (onRestoreInstanceState [this bundle]

@@ -6,12 +6,17 @@
             [neko.threading :refer [on-ui]]
             [neko.ui :as ui]
             [neko.ui.mapping :refer [defelement]]
+            [neko.ui.menu :as menu]
             [neko.ui.traits :as traits]
             [neko.-utils :as u])
   (:import android.app.Activity
            android.view.View
            android.support.v4.widget.SwipeRefreshLayout$OnRefreshListener
-           android.support.design.widget.Snackbar))
+           android.support.design.widget.Snackbar
+           android.support.v4.view.ViewCompat
+           [android.support.v4.widget DrawerLayout DrawerLayout$DrawerListener]
+           [android.support.v7.app AppCompatActivity ActionBarDrawerToggle]
+           java.util.HashMap))
 
 (defn ellipsize [s max-length]
   (let [lng (count s)]

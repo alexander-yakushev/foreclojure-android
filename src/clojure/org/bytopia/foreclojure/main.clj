@@ -50,6 +50,20 @@
 
 ;; (on-ui (refresh-ui (*a)))
 
+(declare make-navbar-header-layout)
+
+(defn load-userpic [a username]
+  (future
+    (log/d "Initializing userpic for" username)
+    (let [img (io/file (.getFilesDir a) (str username ".jpg"))]
+      (when-not (.exists img)
+        (api/download-user-pic a username))
+      (when (.exists img)
+        (on-ui (ui/config (find-view a ::navbar-userpic)
+                          :image (Drawable/createFromPath (str img))))))))
+
+;; (load-userpic (*a) "unlogic")
+
 (defn reload-from-server [a]
   (long-running-job
    nil ; progress-start
@@ -84,24 +98,22 @@
                (db/insert-problem (assoc json "id" problem-id))))
            (when (pos? (+ (count new-ids) (count to-download) (count to-upload)))
              (on-ui (toast (format "Downloaded %d new problem(s).\nDiscovered %d server solution(s).\nUploaded %d local solution(s)."
-                                   (count new-ids) (count to-download) (count to-upload))))))
+                                   (count new-ids) (count to-download) (count to-upload)))))
+           (let [navbar (find-view a ::navbar)
+                 old-header (find-view a ::navbar-header)]
+             (on-ui
+               (when old-header
+                 (.removeHeaderView navbar old-header))
+               (.addHeaderView
+                navbar (ui/make-ui-element
+                        a (make-navbar-header-layout user)
+                        {:id-holder (neko.activity/get-decor-view a)})))
+             (load-userpic a user)))
          (on-ui (toast "Can't login to 4clojure.com. Working in offline mode."))))
      (on-ui (toast "Network is not available.")))
    (on-ui (refresh-ui a))))
 
 ;; (reload-from-server (*a))
-
-(defn load-userpic [a username]
-  (future
-    (log/d "Initializing userpic for" username)
-    (let [img (io/file (.getFilesDir a) (str username ".jpg"))]
-      (when-not (.exists img)
-        (api/download-user-pic a username))
-      (when (.exists img)
-        (on-ui (ui/config (find-view a ::navbar-userpic)
-                          :image (Drawable/createFromPath (str img))))))))
-
-;; (load-userpic (*a) "unlogic")
 
 (defn launch-problem-activity
   [a user problem-id]
@@ -196,7 +208,8 @@
 
 (defn make-navbar-header-layout [username]
   (concat
-   [:relative-layout {:layout-width :fill
+   [:relative-layout {:id ::navbar-header
+                      :layout-width :fill
                       :layout-height [215 :dp]}
     [:image-view {:id ::navbar-userpic
                   :layout-width [76 :dp]
@@ -233,7 +246,7 @@
                                     :layout-margin-top [3 :dp]
                                     :layout-below prev-tv-id
                                     :layout-align-parent-right true
-                                    :progress (int (* (/ solved all) 100))}]]))
+                                    :progress (int (* (/ solved (Math/max all 1)) 100))}]]))
                dif-pairs)
           (apply concat)))))
 
@@ -281,7 +294,8 @@
                                                        (.getItem position)
                                                        :problems/_id)]
                                             (launch-problem-activity this user id)))}]]
-           [:navigation-view {:layout-width [200 :dp]
+           [:navigation-view {:id ::navbar
+                              :layout-width [200 :dp]
                               :layout-height :fill
                               :layout-gravity :left
                               :header (make-navbar-header-layout user)
