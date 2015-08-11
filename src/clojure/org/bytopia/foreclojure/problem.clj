@@ -73,7 +73,7 @@
                                   R$drawable/ic_checkmark
                                   R$drawable/ic_cross))
               (ui/config errv :text (str err-msg))))
-          (range (count (:tests (:problem @(get-state (*a))))))
+          (range (count (:tests (:problem @(get-state a)))))
           status-list)))
 
 (defn try-solution [a code]
@@ -289,7 +289,7 @@
                  :gravity :bottom
                  :max-lines 6
                  :movement-method (android.text.method.ScrollingMovementMethod.)
-                 :min-height (neko.ui.traits/to-dimension (*a) [110 :sp])
+                 :min-height (neko.ui.traits/to-dimension a [110 :sp])
                  :typeface Typeface/MONOSPACE
                  :text-color (Color/rgb 33 33 33)
                  :background-color Color/WHITE
@@ -329,9 +329,9 @@
           (.addTextChangedListener ^EditText (find-view this ::codebox)
                                    (CodeboxTextWatcher. core-forms))
           (refresh-ui this code solved?)
-          (.setDisplayHomeAsUpEnabled (.getSupportActionBar (*a)) true)
-          (.setHomeButtonEnabled (.getSupportActionBar (*a)) true)
-          (.setTitle (.getSupportActionBar (*a)) (str "Problem " (:_id problem)))
+          (.setDisplayHomeAsUpEnabled (.getSupportActionBar this) true)
+          (.setHomeButtonEnabled (.getSupportActionBar this) true)
+          (.setTitle (.getSupportActionBar this) (str "Problem " (:_id problem)))
           (check-solution-on-server this solution))))
     )
 
@@ -373,6 +373,6 @@
 
   (onRestoreInstanceState [this bundle]
     (let [b (like-map bundle)]
-      (ui/config (find-view (*a) ::repl-out) :text (:repl-out b))
+      (ui/config (find-view this ::repl-out) :text (:repl-out b))
       (when (:repl-mode b)
         (toggle-repl-mode this)))))

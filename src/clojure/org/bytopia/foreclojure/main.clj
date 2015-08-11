@@ -45,7 +45,7 @@
 
 (defn refresh-ui [^Activity a]
   (adapters/update-cursor (.getAdapter ^GridView (find-view a ::problems-gv)))
-  (.syncState (find-view (*a) :neko.ui/drawer-toggle))
+  (.syncState (find-view a :neko.ui/drawer-toggle))
   (.invalidateOptionsMenu a))
 
 ;; (on-ui (refresh-ui (*a)))
@@ -94,11 +94,11 @@
 (defn load-userpic [a username]
   (future
     (log/d "Initializing userpic for" username)
-    (let [img (io/file (.getFilesDir (*a)) (str username ".jpg"))]
+    (let [img (io/file (.getFilesDir a) (str username ".jpg"))]
       (when-not (.exists img)
         (api/download-user-pic a username))
       (when (.exists img)
-        (on-ui (ui/config (find-view (*a) ::navbar-userpic)
+        (on-ui (ui/config (find-view a ::navbar-userpic)
                           :image (Drawable/createFromPath (str img))))))))
 
 ;; (load-userpic (*a) "unlogic")
@@ -248,13 +248,13 @@
   (onCreate [this bundle]
     (.superOnCreate this bundle)
     (neko.debug/keep-screen-on this)
-    (.addFlags (.getWindow (*a))
+    (.addFlags (.getWindow this)
                android.view.WindowManager$LayoutParams/FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS)
     (on-ui
       (let [;; this (*a)
             user (:last-user @user/prefs)]
-        (.setDisplayHomeAsUpEnabled (.getSupportActionBar (*a)) true)
-        (.setHomeButtonEnabled (.getSupportActionBar (*a)) true)
+        (.setDisplayHomeAsUpEnabled (.getSupportActionBar this) true)
+        (.setHomeButtonEnabled (.getSupportActionBar this) true)
         (intent/put-extras (.getIntent this) {:user user})
         (set-content-view! this
           [:drawer-layout {:id ::drawer
@@ -331,7 +331,7 @@
 
   (onPostCreate [this bundle]
     (.superOnPostCreate this bundle)
-    (.syncState (find-view (*a) :neko.ui/drawer-toggle)))
+    (.syncState (find-view this :neko.ui/drawer-toggle)))
 
   (onConfigurationChanged [this new-config]
     (.superOnConfigurationChanged this new-config)
