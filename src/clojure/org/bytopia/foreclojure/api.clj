@@ -1,6 +1,7 @@
 (ns org.bytopia.foreclojure.api
   "Functions that interact with 4clojure API or fetch data directly."
   (:require [clojure.data.json :as json]
+            [clojure.java.io :as io]
             [neko.log :as log])
   (:import android.app.Activity
            android.util.Xml
@@ -157,6 +158,20 @@
 
          :else (recur in-text-area))))))
 
+(defn- parse-user-profile-page
+  "Parse HTML page to get user's profile picture."
+  [page-str]
+  (let [parser (html-parser page-str)]
+    (loop []
+      (let [event-type (.next parser)]
+        (cond
+          (= event-type XmlPullParser/END_DOCUMENT) nil
+
+          (tag? start "img", "class" "user-profile-img")
+          (.getAttributeValue parser nil "src")
+
+          :else (recur))))))
+
 ;;; API interaction
 
 (defn logged-in?
@@ -274,3 +289,30 @@
 
 ;; (submit-solution 11 '(/ 1 0))
 ;; (submit-solution 11 '[:b 2])
+
+(defn get-user-pic-url
+  "Retrieves the link to user's Gravatar image."
+  [username]
+  (try
+    (->> (str "http://www.4clojure.com/user/" username)
+         slurp
+         parse-user-profile-page
+         (re-matches #"(^http://www.gravatar.com/avatar/[0-9a-fA-F]+)?.+")
+         second)
+    (catch FileNotFoundException ex nil)))
+
+;; (get-user-pic-url "@debug")
+
+(defn download-user-pic
+  "Downloads the image under the given URL with the specified image width. Saves
+  the image into the internal directory with filename matching the username."
+  [a username]
+  (log/i "Downloading userpic for user" username)
+  (when-let [url (get-user-pic-url username)]
+    (with-open [in (io/input-stream (str url "?s=256&d=mm"))
+                out (.openFileOutput a (str username ".jpg") android.content.Context/MODE_PRIVATE)]
+      (io/copy in out)
+      :done)))
+
+;; (download-user-pic (neko.debug/*a :main) "@debug")
+

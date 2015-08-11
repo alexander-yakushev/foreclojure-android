@@ -1,5 +1,6 @@
 (ns org.bytopia.foreclojure.main
   (:require clojure.set
+            [clojure.java.io :as io]
             [neko.activity :refer [defactivity set-content-view! get-state]]
             [neko.data :refer [like-map]]
             [neko.debug :refer [*a]]
@@ -79,6 +80,18 @@
    (on-ui (refresh-ui a))))
 
 ;; (reload-from-server (*a))
+
+(defn load-userpic [a username]
+  (future
+    (log/d "Initializing userpic for" username)
+    (let [img (io/file (.getFilesDir (*a)) (str username ".jpg"))]
+      (when-not (.exists img)
+        (api/download-user-pic a username))
+      (when (.exists img)
+        (on-ui (ui/config (find-view (*a) ::navbar-userpic)
+                          :image (Drawable/createFromPath (str img))))))))
+
+;; (load-userpic (*a) "unlogic")
 
 (defn launch-problem-activity
   [a user problem-id]
