@@ -189,3 +189,47 @@
 ;; (get-solved-ids-for-user "@debug")
 
 ;; (db/query-seq (get-db) :solutions {:user_id 3})
+
+(defn get-next-unsolved-id
+  "Given a problem ID returns ID of the next unsolved problem. Returns nil if
+  there are no unsolved problems."
+  [username id]
+  (let [db (get-db)
+        user-id (db/query-scalar db :_id :users {:username username})
+        unsolved-ids
+        (db/query-seq
+         db
+         [:problems/_id]
+         (str "problems LEFT OUTER JOIN solutions ON solutions.problem_id = problems._id "
+              "AND solutions.user_id = " user-id)
+         {:solutions/is_solved [:or false nil]})
+        ids (sort (map :problems/_id unsolved-ids))]
+    (if-let [next-id (first (drop-while #(<= % id) ids))]
+      next-id
+      ;; Otherwise all next problems are solved, give one with the smaller ID.
+      (first ids))))
+
+;; (get-next-unsolved-id "@debug" 50)
+
+(defn get-solved-count-by-difficulty
+  "Returns a vector like `[difficulty [solved-count all-count]]` for each
+  problem difficulty for the given user."
+  [username]
+  (let [db (get-db)
+        user-id (db/query-scalar db :_id :users {:username username})]
+    (->> (db/query-seq
+          (get-db)
+          [:problems/_id :problems/difficulty :solutions/is_solved]
+          (str "problems LEFT OUTER JOIN solutions ON solutions.problem_id = problems._id "
+               "AND solutions.user_id = " user-id)
+          nil)
+         (group-by :problems/difficulty)
+         (map (fn [[dif problems]]
+                [dif [(count (filter :solutions/is_solved problems))
+                      (count problems)]]))
+         vec
+         ((fn [difs] (conj difs ["Total" (reduce (fn [[acc-solved acc-all] [_ [solved all]]]
+                                                  [(+ acc-solved solved) (+ acc-all all)])
+                                                [0 0] difs)]))))))
+
+;; (get-solved-count-by-difficulty "testclient")

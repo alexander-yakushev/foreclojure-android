@@ -19,14 +19,20 @@
             [org.bytopia.foreclojure
              [db :as db]
              [api :as api]
-             [utils :refer [long-running-job]]
+             [utils :as utils :refer [long-running-job on-refresh-listener-call]]
              [user :as user]])
   (:import android.app.Activity
+           android.graphics.Color
+           android.graphics.drawable.Drawable
            android.text.Html
            android.util.LruCache
            android.view.View
-           [android.widget CursorAdapter GridView TextView]
-           java.util.concurrent.LinkedBlockingDeque))
+           java.util.HashMap
+           [android.widget CursorAdapter GridView TextView ProgressBar]
+           java.util.concurrent.LinkedBlockingDeque
+           android.support.v4.view.ViewCompat
+           [android.support.v4.widget DrawerLayout DrawerLayout$DrawerListener]
+           [android.support.v7.app AppCompatActivity ActionBarDrawerToggle]))
 
 (neko.resource/import-all)
 
@@ -39,12 +45,16 @@
 
 (defn refresh-ui [^Activity a]
   (adapters/update-cursor (.getAdapter ^GridView (find-view a ::problems-gv)))
+  (.syncState (find-view (*a) :neko.ui/drawer-toggle))
   (.invalidateOptionsMenu a))
 
 ;; (on-ui (refresh-ui (*a)))
 
 (defn reload-from-server [a]
   (long-running-job
+   nil ; progress-start
+   (.setRefreshing (find-view a ::refresh-lay) false) ; progress-stop
+
    (if (api/network-connected?)
      (let [user (:user (like-map (.getIntent a)))]
        ;; Try relogin
@@ -184,35 +194,105 @@
                               View/VISIBLE View/GONE))))
    (fn [] (db/get-problems-cursor user (not (hide-solved-problem?))))))
 
+(defn make-navbar-header-layout [username]
+  (concat
+   [:relative-layout {:layout-width :fill
+                      :layout-height [215 :dp]}
+    [:image-view {:id ::navbar-userpic
+                  :layout-width [76 :dp]
+                  :layout-height [76 :dp]
+                  :layout-margin-top [10 :dp]
+                  :layout-center-horizontal true}]
+    [:text-view {:id ::navbar-username
+                 :text username
+                 :layout-width :wrap
+                 :layout-margin-top [5 :dp]
+                 :layout-margin-bottom [10 :dp]
+                 :layout-center-horizontal true
+                 :layout-below ::navbar-userpic}]]
+
+   (let [dif-pairs (->> (db/get-solved-count-by-difficulty username)
+                        (cons nil)
+                        (partition 2 1))
+         pb-style android.R$attr/progressBarStyleHorizontal]
+     (->> (map (fn [[[prev-dif _] [dif [solved all]]]]
+                 (let [ns "org.bytopia.foreclojure.main"
+                       prev-tv-id (if prev-dif
+                                    (keyword ns (str "navbar-diftv-" prev-dif))
+                                    ::navbar-username)
+                       curr-tv-id (keyword ns (str "navbar-diftv-" dif))]
+                   [[:text-view {:id curr-tv-id
+                                 :layout-below prev-tv-id
+                                 :layout-margin-left [10 :dp]
+                                 :text dif}]
+                    [:progress-bar {:indeterminate false
+                                    :custom-constructor
+                                    (fn [c] (ProgressBar. c nil pb-style))
+                                    :layout-width [100 :dp]
+                                    :layout-margin-right [10 :dp]
+                                    :layout-margin-top [3 :dp]
+                                    :layout-below prev-tv-id
+                                    :layout-align-parent-right true
+                                    :progress (int (* (/ solved all) 100))}]]))
+               dif-pairs)
+          (apply concat)))))
+
+(alter-var-root #'neko.find-view/nil-or-view?
+                (fn [v]
+                  (fn [x] true)))
+
 (defactivity org.bytopia.foreclojure.ProblemGridActivity
   :key :main
-  :features [:indeterminate-progress]
+  :extends AppCompatActivity
 
   (onCreate [this bundle]
     (.superOnCreate this bundle)
     (neko.debug/keep-screen-on this)
+    (.addFlags (.getWindow (*a))
+               android.view.WindowManager$LayoutParams/FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS)
     (on-ui
       (let [;; this (*a)
             user (:last-user @user/prefs)]
+        (.setDisplayHomeAsUpEnabled (.getSupportActionBar (*a)) true)
+        (.setHomeButtonEnabled (.getSupportActionBar (*a)) true)
         (intent/put-extras (.getIntent this) {:user user})
         (set-content-view! this
-          [:grid-view {:id ::problems-gv
-                       :column-width (traits/to-dimension this [160 :dp])
-                       :num-columns :auto-fit
-                       :stretch-mode :stretch-column-width
-                       :background-color (android.graphics.Color/rgb 229 229 229)
-                       :horizontal-spacing (traits/to-dimension this [8 :dp])
-                       :vertical-spacing (traits/to-dimension this [8 :dp])
-                       :padding [8 :dp]
-                       :clip-to-padding false
-                       :adapter (make-problem-adapter this user)
-                       :on-item-click (fn [^GridView parent, _ position __]
-                                        (let [id (-> (.getAdapter parent)
-                                                     (.getItem position)
-                                                     :problems/_id)]
-                                          (launch-problem-activity this user id)))}])
+          [:drawer-layout {:id ::drawer
+                           :drawer-indicator-enabled true}
+           [:swipe-refresh-layout {:id ::refresh-lay
+                                   :color-scheme-resources (into-array Integer/TYPE
+                                                                       [R$color/blue
+                                                                        R$color/dim_blue])
+                                   :on-refresh (fn [_] (reload-from-server this))}
+            [:grid-view {:id ::problems-gv
+                         :column-width (traits/to-dimension this [160 :dp])
+                         :num-columns :auto-fit
+                         :stretch-mode :stretch-column-width
+                         :background-color (Color/rgb 229 229 229)
+                         :horizontal-spacing (traits/to-dimension this [8 :dp])
+                         :vertical-spacing (traits/to-dimension this [8 :dp])
+                         :padding [8 :dp]
+                         :clip-to-padding false
+                         :selector R$drawable/card_ripple
+                         :draw-selector-on-top true
+                         :adapter (make-problem-adapter this user)
+                         :on-item-click (fn [^GridView parent, _ position __]
+                                          (let [id (-> (.getAdapter parent)
+                                                       (.getItem position)
+                                                       :problems/_id)]
+                                            (launch-problem-activity this user id)))}]]
+           [:navigation-view {:layout-width [200 :dp]
+                              :layout-height :fill
+                              :layout-gravity :left
+                              :header (make-navbar-header-layout user)
+                              :menu [[:item {:title "Log out"
+                                             :icon R$drawable/ic_exit_to_app_black
+                                             :show-as-action [:always :with-text]
+                                             :on-click (fn [_] (.showDialog this 0))}]]}]])
         (refresh-ui this)
-        (reload-from-server this)))
+        (future (require 'org.bytopia.foreclojure.problem))
+        (reload-from-server this)
+        (load-userpic this user)))
     )
 
   (onStart [this]
@@ -236,15 +316,26 @@
                      :checked (not (hide-solved-problem?))
                      :on-click (fn [_] (toggle-hide-solved this))}]
              [:item {:title "Reload"
-                     :icon R$drawable/ic_menu_refresh
+                     :icon R$drawable/ic_refresh_white
                      :show-as-action :always
-                     :on-click (fn [_] (reload-from-server this))}]
-             [:item {:title (format "%s (%s)" user
-                                    (if online? "online" "offline"))
-                     :icon R$drawable/ic_menu_friendslist
-                     :show-as-action [:always :with-text]
-                     :on-click (fn [_] (.showDialog this 0))}]]))
+                     :on-click (fn [_]
+                                 (.setRefreshing (find-view this ::refresh-lay) true)
+                                 (reload-from-server this))}]]))
     true)
+
+  (onOptionsItemSelected [this item]
+    false
+    (if (.onOptionsItemSelected (find-view this :neko.ui/drawer-toggle) item)
+      true
+      (.superOnOptionsItemSelected this item)))
+
+  (onPostCreate [this bundle]
+    (.superOnPostCreate this bundle)
+    (.syncState (find-view (*a) :neko.ui/drawer-toggle)))
+
+  (onConfigurationChanged [this new-config]
+    (.superOnConfigurationChanged this new-config)
+    (.onConfigurationChanged (find-view this :neko.ui/drawer-toggle) new-config))
 
   (onCreateDialog [this id _]
     (when (= id 0)
