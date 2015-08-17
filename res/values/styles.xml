@@ -1,23 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
   <style name="Theme.MainTheme" parent="Theme.AppCompat.Light.DarkActionBar">
-    <!-- Set AppCompat’s actionBarStyle -->
-    <!-- <item name="actionBarStyle">@style/MyActionBarStyle</item> -->
-
-    <!-- <item name="drawerArrowStyle">@style/DrawerArrowStyle</item> -->
-
-    <!-- Set AppCompat’s color theming attrs -->
     <item name="colorPrimary">@color/blue</item>
     <item name="colorPrimaryDark">@color/dim_blue</item>
     <item name="colorAccent">@color/green</item>
-
-    <!-- <item name="android:textColorPrimary">@color/white</item> -->
-    <!-- <item name="android:statusBarColor">@color/deep_blue</item> -->
   </style>
-
-  <!-- <style name="DrawerArrowStyle" parent="Widget.AppCompat.DrawerArrowToggle"> -->
-  <!--   <item name="spinBars">true</item> -->
-  <!--   <item name="color">@android:color/white</item> -->
-  <!-- </style> -->
-
 </resources>

@@ -24,6 +24,7 @@
   (:import android.app.Activity
            android.graphics.Color
            android.graphics.drawable.Drawable
+           android.os.Build$VERSION
            android.text.Html
            android.util.LruCache
            android.view.View
@@ -35,10 +36,6 @@
            [android.support.v7.app AppCompatActivity ActionBarDrawerToggle]))
 
 (neko.resource/import-all)
-
-(defelement :grid-view
-  :classname GridView
-  :traits [:on-item-click])
 
 (defn hide-solved-problem? []
   (:hide-solved? @user/prefs))
@@ -64,9 +61,9 @@
 
 ;; (load-userpic (*a) "unlogic")
 
-(defn reload-from-server [a]
+(defn reload-from-server [a start-progress]
   (long-running-job
-   nil ; progress-start
+   (when start-progress (.setRefreshing (find-view a ::refresh-lay) true)) ; progress-start
    (.setRefreshing (find-view a ::refresh-lay) false) ; progress-stop
 
    (if (api/network-connected?)
@@ -113,7 +110,7 @@
      (on-ui (toast "Network is not available.")))
    (on-ui (refresh-ui a))))
 
-;; (reload-from-server (*a))
+;; (reload-from-server (*a) true)
 
 (defn launch-problem-activity
   [a user problem-id]
@@ -250,10 +247,6 @@
                dif-pairs)
           (apply concat)))))
 
-(alter-var-root #'neko.find-view/nil-or-view?
-                (fn [v]
-                  (fn [x] true)))
-
 (defactivity org.bytopia.foreclojure.ProblemGridActivity
   :key :main
   :extends AppCompatActivity
@@ -261,8 +254,9 @@
   (onCreate [this bundle]
     (.superOnCreate this bundle)
     (neko.debug/keep-screen-on this)
-    (.addFlags (.getWindow this)
-               android.view.WindowManager$LayoutParams/FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS)
+    (when (>= Build$VERSION/SDK_INT 21)
+      (.addFlags (.getWindow this)
+                 android.view.WindowManager$LayoutParams/FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS))
     (on-ui
       (let [;; this (*a)
             user (:last-user @user/prefs)]
@@ -276,7 +270,7 @@
                                    :color-scheme-resources (into-array Integer/TYPE
                                                                        [R$color/blue
                                                                         R$color/dim_blue])
-                                   :on-refresh (fn [_] (reload-from-server this))}
+                                   :on-refresh (fn [_] (reload-from-server this false))}
             [:grid-view {:id ::problems-gv
                          :column-width (traits/to-dimension this [160 :dp])
                          :num-columns :auto-fit
@@ -305,7 +299,7 @@
                                              :on-click (fn [_] (.showDialog this 0))}]]}]])
         (refresh-ui this)
         (future (require 'org.bytopia.foreclojure.problem))
-        (reload-from-server this)
+        (reload-from-server this true)
         (load-userpic this user)))
     )
 
@@ -333,8 +327,7 @@
                      :icon R$drawable/ic_refresh_white
                      :show-as-action :always
                      :on-click (fn [_]
-                                 (.setRefreshing (find-view this ::refresh-lay) true)
-                                 (reload-from-server this))}]]))
+                                 (reload-from-server this true))}]]))
     true)
 
   (onOptionsItemSelected [this item]
