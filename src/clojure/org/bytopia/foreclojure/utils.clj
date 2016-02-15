@@ -1,5 +1,6 @@
 (ns org.bytopia.foreclojure.utils
   (:require [neko.activity :as a]
+            [neko.find-view :refer [find-view]]
             [neko.listeners.view :refer [on-click-call]]
             [neko.notify :refer [toast]]
             [neko.resource :refer [get-string]]
@@ -89,10 +90,12 @@
 (neko.ui.traits/deftrait :drawer-toggle
   "docs"
   {:attributes [:drawer-open-text :drawer-closed-text :drawer-indicator-enabled
-                :on-drawer-closed :on-drawer-opened]}
+                :on-drawer-closed :on-drawer-opened
+                :on-drawer-slide :disable-anim :disable-anim-id]}
   [^DrawerLayout wdg, {:keys [drawer-open-text drawer-closed-text
                               drawer-indicator-enabled
-                              on-drawer-opened on-drawer-closed]}
+                              on-drawer-opened on-drawer-closed
+                              on-drawer-slide disable-anim disable-anim-id]}
    {:keys [^View id-holder]}]
   (let [toggle (proxy [ActionBarDrawerToggle DrawerLayout$DrawerListener]
                    [^android.app.Activity (.getContext wdg)
@@ -102,7 +105,18 @@
                  (onDrawerOpened [view]
                    (neko.-utils/call-if-nnil on-drawer-opened view))
                  (onDrawerClosed [view]
-                   (neko.-utils/call-if-nnil on-drawer-closed view)))]
+                   (neko.-utils/call-if-nnil on-drawer-closed view))
+                 (onDrawerSlide [view slide-offset]
+                   (let [wanted-slide-offset
+                         (if (or disable-anim
+                                 (and disable-anim-id
+                                      (= (.getId view)
+                                         (.getId (find-view (.getContext wdg)
+                                                            disable-anim-id)))))
+                           0
+                           slide-offset)]
+                     (proxy-super onDrawerSlide view wanted-slide-offset)
+                     (neko.-utils/call-if-nnil on-drawer-slide view slide-offset))))]
     (.setDrawerIndicatorEnabled toggle (boolean drawer-indicator-enabled))
     (.setDrawerListener wdg toggle)
     (when id-holder
