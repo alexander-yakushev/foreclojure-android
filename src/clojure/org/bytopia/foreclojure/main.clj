@@ -29,7 +29,7 @@
            android.util.LruCache
            android.view.View
            java.util.HashMap
-           [android.widget CursorAdapter GridView TextView ProgressBar]
+           [android.widget CursorAdapter CheckBox GridView TextView ProgressBar]
            java.util.concurrent.LinkedBlockingDeque
            android.support.v4.view.ViewCompat
            [android.support.v4.widget DrawerLayout DrawerLayout$DrawerListener]
@@ -40,9 +40,37 @@
 (defn hide-solved-problem? []
   (:hide-solved? @user/prefs))
 
+(defn show-elem-problem? []
+  (boolean (:show-elem? @user/prefs)))
+
+(defn show-easy-problem? []
+  (boolean (:show-easy? @user/prefs)))
+
+(defn show-medi-problem? []
+  (boolean (:show-medi? @user/prefs)))
+
+(defn show-hard-problem? []
+  (boolean (:show-hard? @user/prefs)))
+
+(defn make-levels-vec []
+  (->> {"Elementary" (show-elem-problem?)
+        "Easy" (show-easy-problem?)
+        "Medium" (show-medi-problem?)
+        "Hard" (show-hard-problem?)}
+       (keep (fn [[level show?]]
+               (when show?
+                 level)))
+       (into [])))
+
 (defn refresh-ui [^Activity a]
   (adapters/update-cursor (.getAdapter ^GridView (find-view a ::problems-gv)))
   (.syncState (find-view a :neko.ui/drawer-toggle))
+  (let [[^CheckBox elem ^CheckBox easy ^CheckBox medi ^CheckBox hard]
+        (find-views a ::elem-cb ::easy-cb ::medi-cb ::hard-cb)]
+    (.setChecked elem (show-elem-problem?))
+    (.setChecked easy (show-easy-problem?))
+    (.setChecked medi (show-medi-problem?))
+    (.setChecked hard (show-hard-problem?)))
   (.invalidateOptionsMenu a))
 
 ;; (on-ui (refresh-ui (*a)))
@@ -119,12 +147,42 @@
 
 (defn switch-user [a]
   (user/clear-last-user a)
+  (user/reset-show-levels)
   (.startActivity a (intent/intent a '.LoginActivity {}))
   (.finish a))
 
 (defn toggle-hide-solved [a]
   (swap! user/prefs #(assoc % :hide-solved? (not (:hide-solved? %))))
   (refresh-ui a))
+
+(defn toggle-show-elem [a]
+  (swap! user/prefs #(assoc % :show-elem? (not (:show-elem? %))))
+  (refresh-ui a))
+
+(defn toggle-show-easy [a]
+  (swap! user/prefs #(assoc % :show-easy? (not (:show-easy? %))))
+  (refresh-ui a))
+
+(defn toggle-show-medi [a]
+  (swap! user/prefs #(assoc % :show-medi? (not (:show-medi? %))))
+  (refresh-ui a))
+
+(defn toggle-show-hard [a]
+  (swap! user/prefs #(assoc % :show-hard? (not (:show-hard? %))))
+  (refresh-ui a))
+
+(defn reset-show-levels [a]
+  (user/reset-show-levels)
+  (refresh-ui a))
+
+(defn toggle-right-drawer [a]
+  (let [[drawer-lo filter-nv]
+        (find-views a ::drawer ::filter-nv)]
+    (if (and drawer-lo filter-nv)
+      (if (.isDrawerOpen drawer-lo filter-nv)
+        (.closeDrawer drawer-lo filter-nv)
+        (.openDrawer drawer-lo filter-nv))
+      (log/d "Failed to find drawer layout and/or right drawer"))))
 
 (defn html->short-str [html]
   (utils/ellipsize (str (Html/fromHtml html)) 140))
@@ -201,7 +259,9 @@
          (.put problem-queue id))
        (.setVisibility done (if (:solutions/is_solved data)
                               View/VISIBLE View/GONE))))
-   (fn [] (db/get-problems-cursor user (not (hide-solved-problem?))))))
+   (fn [] (db/get-problems-cursor user
+                                  (not (hide-solved-problem?))
+                                  (make-levels-vec)))))
 
 (defn make-navbar-header-layout [username]
   (concat
@@ -247,6 +307,37 @@
                dif-pairs)
           (apply concat)))))
 
+(defn make-header-layout
+  [^Activity a]
+  [:relative-layout {:id ::filter-header
+                     :layout-height [215 :dp]
+                     :layout-width :fill}
+   [:check-box {:checked (show-elem-problem?)
+                :id ::elem-cb
+                :on-click (fn [_] (toggle-show-elem a))
+                :text "Elementary"}]
+   [:check-box {:checked (show-easy-problem?)
+                :layout-below ::elem-cb
+                :id ::easy-cb
+                :on-click (fn [_] (toggle-show-easy a))
+                :text "Easy"}]
+   [:check-box {:checked (show-medi-problem?)
+                :layout-below ::easy-cb
+                :id ::medi-cb
+                :on-click (fn [_] (toggle-show-medi a))
+                :text "Medium"}]
+   [:check-box {:checked (show-hard-problem?)
+                :layout-below ::medi-cb
+                :id ::hard-cb
+                :on-click (fn [_] (toggle-show-hard a))
+                :text "Hard"}]])
+
+(defn invalidate-if-right-drawer [v a]
+  (let [filter-nv (find-view a ::filter-nv)]
+    (when (= (.getId v)
+             (.getId filter-nv))
+      (.invalidateOptionsMenu a))))
+
 (defactivity org.bytopia.foreclojure.ProblemGridActivity
   :key :main
   :extends AppCompatActivity
@@ -265,7 +356,14 @@
         (intent/put-extras (.getIntent this) {:user user})
         (set-content-view! this
           [:drawer-layout {:id ::drawer
-                           :drawer-indicator-enabled true}
+                           :drawer-indicator-enabled true
+                           :disable-anim-id ::filter-nv
+                           :on-drawer-opened
+                           (fn [v]
+                             (invalidate-if-right-drawer v this))
+                           :on-drawer-closed
+                           (fn [v]
+                             (invalidate-if-right-drawer v this))}
            [:swipe-refresh-layout {:id ::refresh-lay
                                    :color-scheme-resources (into-array Integer/TYPE
                                                                        [R$color/blue
@@ -296,7 +394,17 @@
                               :menu [[:item {:title "Log out"
                                              :icon R$drawable/ic_exit_to_app_black
                                              :show-as-action [:always :with-text]
-                                             :on-click (fn [_] (.showDialog this 0))}]]}]])
+                                             :on-click (fn [_] (.showDialog this 0))}]]}]
+           [:navigation-view {:header (make-header-layout this)
+                              :id ::filter-nv
+                              :layout-gravity :right
+                              :layout-height :fill
+                              :layout-width [200 :dp]
+                              :menu [[:item {:icon R$drawable/ic_refresh_white
+                                             :on-click (fn [_] (reset-show-levels this))
+                                             :show-as-action [:always :with-text]
+                                             :title "Reset"}]]}]
+           ])
         (refresh-ui this)
         (future (require 'org.bytopia.foreclojure.problem))
         (reload-from-server this true)
@@ -327,7 +435,12 @@
                      :icon R$drawable/ic_refresh_white
                      :show-as-action :always
                      :on-click (fn [_]
-                                 (reload-from-server this true))}]]))
+                                 (reload-from-server this true))}]
+             [:item {:title "Filter"
+                     :icon R$drawable/ic_format_list_bulleted_white
+                     :show-as-action :always
+                     :on-click (fn [_]
+                                 (toggle-right-drawer this))}]]))
     true)
 
   (onOptionsItemSelected [this item]

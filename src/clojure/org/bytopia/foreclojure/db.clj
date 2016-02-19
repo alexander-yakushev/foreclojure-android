@@ -165,7 +165,7 @@
 (defn get-problems-cursor
   "Queries database for the problems to be displayed in the grid. Returns a
   Cursor object."
-  [username show-solved?]
+  [username show-solved? show-levels]
   (let [db (get-db)
         user-id (db/query-scalar db :_id :users {:username username})]
     (db/query
@@ -173,7 +173,13 @@
      [:problems/_id :problems/title :problems/description :solutions/is_solved]
      (str "problems LEFT OUTER JOIN solutions ON solutions.problem_id = problems._id "
           "AND solutions.user_id = " user-id)
-     (when-not show-solved? {:solutions/is_solved [:or false nil]}))))
+     (let [show-map {:problems/difficulty (if (seq show-levels)
+                                            (apply conj [:or] show-levels)
+                                            nil)}]
+       (if show-solved?
+         show-map
+         (assoc show-map :solutions/is_solved [:or false nil])))
+     )))
 
 ;; (get-problems-cursor "testclient" true)
 

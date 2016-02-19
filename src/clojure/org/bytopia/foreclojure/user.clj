@@ -56,6 +56,12 @@
 (defn clear-last-user [a]
   (swap! prefs dissoc :last-user))
 
+(defn reset-show-levels []
+  (swap! prefs assoc :show-elem? true
+                     :show-easy? true
+                     :show-medi? true
+                     :show-hard? true))
+
 (defn login-via-input [a]
   (let [[user-et pwd-et] (find-views a ::user-et ::pwd-et)
         username (str (.getText ^EditText user-et))
