@@ -22,7 +22,10 @@
   :dependencies [[org.clojure-android/clojure "1.7.0-r2"]
                  [neko/neko "4.0.0-alpha4"]
                  [org.clojure-android/data.json "0.2.6-SNAPSHOT"]
-                 [com.android.support/design "22.2.1" :extension "aar"]]
+                 [com.android.support/design "22.2.1" :extension "aar"]
+                 [org.apache.httpcomponents/httpcore "4.4.4"]
+                 [org.apache.httpcomponents/httpclient "4.5.2"]
+                 [org.apache.httpcomponents/httpmime "4.5.2"]]
   :profiles {:default [:dev]
 
              :dev
