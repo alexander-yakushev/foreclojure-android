@@ -21,7 +21,7 @@
 
 * How to build
 
-  Set =:sdk-path= in =:android= map in =project.clj=. Execute =lein droid doall=
+  Set =:sdk-path= and =:target-version= in =:android= map in =project.clj=. Execute =lein droid doall=
   inside the repository.
 
   For more information on Clojure-Android initiative check [[http://clojure-android.info/][clojure-android.info]]

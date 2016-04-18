@@ -22,30 +22,38 @@
   :dependencies [[org.clojure-android/clojure "1.7.0-r2"]
                  [neko/neko "4.0.0-alpha4"]
                  [org.clojure-android/data.json "0.2.6-SNAPSHOT"]
-                 [com.android.support/design "22.2.1" :extension "aar"]]
+                 [com.android.support/design "22.2.1" :extension "aar"]
+                 [org.apache.httpcomponents/httpcore "4.4.4"]
+                 [org.apache.httpcomponents/httpclient "4.5.2"]
+                 [org.apache.httpcomponents/httpmime "4.5.2"]]
   :profiles {:default [:dev]
 
              :dev
              [:android-common :android-user
               {:dependencies [[org.clojure/tools.nrepl "0.2.10"]]
                :target-path "target/debug"
-               :android {:aot :all-with-unused
+               :android {:sdk-path "/home/clojure/android-sdk-linux"
+                         :target-version "23" 
+                         :aot :all-with-unused
                          :rename-manifest-package "org.bytopia.foreclojure.debug"
                          :manifest-options {:app-name "4Clojure - debug"}}}]
 
              :release
              [:android-common :android-release
               {:target-path "target/release"
-               :android {:ignore-log-priority [:debug :verbose]
+               :android {:sdk-path "/home/clojure/android-sdk-linux" 
+                         :target-version "23"
+                         :ignore-log-priority [:debug :verbose]
                          :enable-dynamic-compilation true
                          :aot :all
                          :build-type :release}}]}
 
-  :android {:dex-opts ["-JXmx4096M" "--incremental"]
+  :android {:sdk-path "/home/clojure/android-sdk-linux" 
+            :dex-opts ["-JXmx4096M" "--incremental"]
             :build-config {"ENC_ALGORITHM" "Blowfish"
                            "ENC_KEY" #=(get-enc-key)}
             :manifest-options {:app-name "@string/app_name"}
-            :target-version "21"
+            :target-version "23"
             :aot-exclude-ns ["clojure.parallel" "clojure.core.reducers"
                              "cljs-tooling.complete" "cljs-tooling.info"
                              "cljs-tooling.util.analysis" "cljs-tooling.util.misc"
